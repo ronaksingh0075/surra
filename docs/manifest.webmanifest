@@ -1,0 +1,36 @@
+{
+  "name": "Surra · Swedish conversation",
+  "short_name": "Surra",
+  "id": "./",
+  "start_url": "./?source=app",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FCEFE6",
+  "theme_color": "#A93A2F",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": [
+    "education"
+  ],
+  "description": "Travel Sweden from Malmö to Kiruna and learn to respond in real Swedish conversations, from fika small talk to job interviews. A1 to C1.",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
