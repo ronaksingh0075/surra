@@ -66,6 +66,31 @@ for (const lv of LEVELS) {
   }
 }
 if (Object.keys(FACTS).length !== 20) errs.push('facts for unknown stops');
+
+// colour themes: every palette defines every token in both modes, and text stays readable (WCAG contrast)
+const tctx = {}; vm.createContext(tctx);
+vm.runInContext(fs.readFileSync(__dirname + '/../src/themes.js', 'utf8') + '\n;this.THEMES=THEMES;this.THEME_VARS=THEME_VARS;', tctx);
+const lum = hex => { const v = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+const FIXED = { light: { moss: '#3B7A4E', lingon: '#C2394F', fx: ['#A93A2F', '#9A5A08', '#3B7A4E', '#6B4FC4'] }, dark: { moss: '#7CCB8F', lingon: '#F57E93', fx: ['#EC7A64', '#F6B44E', '#7CCB8F', '#B39BFF'] } };
+const themeIds = new Set();
+for (const t of tctx.THEMES) {
+  if (themeIds.has(t.id)) errs.push(`theme ${t.id}: duplicate id`); themeIds.add(t.id);
+  for (const mode of ['light', 'dark']) {
+    const c = t[mode] || {};
+    for (const k of tctx.THEME_VARS) if (!/^#[0-9A-Fa-f]{6}$/.test(c[k] || '')) errs.push(`theme ${t.id}/${mode}: missing or bad --${k}`);
+    if (errs.length) continue;
+    const need = (a, b, min, what) => { const r = contrast(c[a] || a, c[b] || b); if (r < min) errs.push(`theme ${t.id}/${mode}: ${what} contrast ${r.toFixed(2)} < ${min}`); };
+    need('glow-ink', 'glow', 4.5, 'button text');
+    need('ink', 'surface', 7, 'body text'); need('ink', 'bg', 7, 'body text on page');
+    need('ink-2', 'surface', 4.5, 'secondary text'); need('ink-2', 'surface-2', 4.5, 'secondary text on tiles'); need('ink-2', 'bg', 4.5, 'secondary text on page');
+    need('falu', 'surface', 4.5, 'accent/link'); need('falu', 'bg', 4.5, 'accent/link on page');
+    need('ink', 'glow-soft', 4.5, 'text on soft chips');
+    need('ink-3', 'surface', 2.8, 'faint text');
+    for (const fx of FIXED[mode].fx) need(fx, 'surface', 4.5, 'fact label ' + fx);
+    need(FIXED[mode].moss, 'surface', 4.5, 'correct green'); need(FIXED[mode].lingon, 'surface', 4.0, 'wrong red');
+  }
+}
 if (Object.keys(STOPS).length !== 20) errs.push(`expected 20 stops, got ${Object.keys(STOPS).length}`);
-console.log(errs.length ? errs.join('\n') : 'All checks passed', '\n', counts);
+console.log(errs.length ? errs.join('\n') : 'All checks passed', '\n', counts, '\n themes:', tctx.THEMES.length);
 process.exit(errs.length ? 1 : 0);

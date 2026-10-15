@@ -16,6 +16,7 @@ Once installed, Surra opens full screen and works offline.
 - 20 stops across 5 levels (A1 Skåne → C1 Norrbotten). Each stop has key phrases, reply drills, sentence building and a conversation.
 - Gamification: XP and combos, a daily goal, a streak shown as seven candles, city stamps, 20 badges, the 60-second Snabbsvar game, and a review pile built from your mistakes.
 - 80 "Did you know?" facts on history, culture and food, nature and geography, and language. They unlock as you finish lessons, each with a Swedish word to hear and learn.
+- Colour themes: six palettes inspired by Sweden (Mysig, Skärgård, Skog, Ljung, plus Midnattssol and Norrsken, which unlock as you practise) and an Auto/Light/Dark switch. Your choice syncs with your profile.
 - Optional profile: sign up with email and a confirmation link, then progress is backed up and follows you across devices. Guests can learn without an account, and their progress carries over when they sign up.
 
 ## Project layout

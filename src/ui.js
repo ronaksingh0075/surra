@@ -227,17 +227,20 @@ function JourneyMap({ s, onRegion, onStop, compact }) {
 }
 
 /* ---------- home */
+const fmtShort = n => (n < 10000 ? fmtN(n) : n < 1e6 ? (n / 1000).toFixed(n < 1e5 ? 1 : 0).replace(/\.0$/, '') + 'k' : (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M');
 function TopBar({ s, go }) {
   const streak = liveStreak(s), tx = todayXP(s), lit = s.streak.last === today();
   return html`<header class="topbar">
     <button class="brand" onClick=${() => go({ name: 'home' })} aria-label="Surra home"><${BeeLogo} /><span class="display">Surra</span></button>
-    <div class="stats">
-      <button class="stat" onClick=${() => go({ name: 'pass' })} aria-label=${`${streak} day streak${lit ? ', practised today' : ''}`} title="Streak">
-        <span style=${`color:${lit ? 'var(--glow-2)' : 'var(--ink-3)'};display:inline-flex`}><${Icon} n="candle" s=${19} /></span><span class="num">${streak}</span></button>
+    <div class="stats" role="group" aria-label="Your progress">
+      <button class=${cx('stat', lit && 'lit')} onClick=${() => go({ name: 'pass' })} aria-label=${`${streak} day streak${lit ? ', practised today' : ''}`} title="Streak">
+        <span class="si"><${Icon} n="candle" s=${19} /></span><span class="num">${streak}</span><span class="unit">${streak === 1 ? 'day' : 'days'}</span></button>
       <button class="stat" onClick=${() => go({ name: 'pass' })} aria-label=${`${s.xp} XP in total`} title="Total XP">
-        <span style="color:var(--glow-2);display:inline-flex"><${Icon} n="star" s=${17} fill /></span><span class="num">${fmtN(s.xp)}</span></button>
+        <span class="si gold"><${Icon} n="star" s=${17} fill /></span><span class="num">${fmtShort(s.xp)}</span><span class="unit">XP</span></button>
       <button class="stat" onClick=${() => go({ name: 'pass' })} aria-label=${`${tx} of ${s.goal} XP today`} title="Daily goal">
-        <${Ring} v=${tx} max=${s.goal} size=${22} /><span class="num goaltxt">${Math.min(tx, 9999)}/${s.goal}</span></button>
+        <${Ring} v=${tx} max=${s.goal} size=${20} /><span class="num">${fmtShort(tx)}/${s.goal}</span><span class="unit">today</span></button>
+    </div>
+    <div class="actions">
       <${ProfileButton} s=${s} go=${go} />
       <button class="iconbtn plain" onClick=${() => go({ name: 'settings' })} aria-label="Settings"><${Icon} n="gear" /></button>
     </div>
@@ -989,12 +992,40 @@ function Pass({ go }) {
 function Seg({ value, options, onChange, label }) {
   return html`<div class="seg" role="group" aria-label=${label}>${options.map(o => html`<button aria-pressed=${String(value === o.v)} onClick=${() => onChange(o.v)}>${o.l}</button>`)}</div>`;
 }
+function ThemePicker({ s }) {
+  const mode = themeMode(s.settings);
+  return html`<div class="themegrid" role="radiogroup" aria-label="Colour theme">
+    ${THEMES.map(t => {
+      const open = themeOpen(s, t), c = t[mode], on = (s.settings.palette || 'mysig') === t.id;
+      return html`<button class=${cx('themecard', !open && 'locked')} role="radio" aria-checked=${String(on)} disabled=${!open}
+        onClick=${() => update(x => { x.settings.palette = t.id; })} aria-label=${`${t.sv}, ${t.en}${open ? '' : `. ${t.unlock.hint}`}`}>
+        <span class="tc-preview" style=${`background:${c.bg}`} aria-hidden="true">
+          <span class="tc-card" style=${`background:${c.surface};border-color:${c.line}`}>
+            <span class="tc-title" style=${`background:${c.falu}`}></span>
+            <span class="tc-text" style=${`background:${c['ink-3']}`}></span>
+            <span class="tc-btn" style=${`background:${c.glow};box-shadow:0 2px 0 ${c['glow-2']}`}></span>
+          </span>
+          <span class="tc-bee"><${BeeLogo} s=${26} /></span>
+          ${on ? html`<span class="tc-check"><${Icon} n="check" s=${14} w=${3.2} /></span>` : null}
+          ${open ? null : html`<span class="tc-lock"><${Icon} n="lock" s=${16} /></span>`}
+        </span>
+        <span class="tc-name"><b>${t.sv}</b><span>${open ? t.en : t.unlock.hint}</span></span>
+      </button>`;
+    })}
+  </div>`;
+}
 function Settings({ go }) {
   const s = useApp(), env = ENV.use();
   const [reset, setReset] = useState(false);
   const set = fn => update(fn);
   return html`<div class="wrap" style="max-width:760px">
     <div class="page-head"><button class="iconbtn" onClick=${() => go({ name: 'home' })} aria-label="Back to map"><${Icon} n="arrowL" /></button><h1>Settings</h1></div>
+    <section class="card" style="margin-bottom:16px">
+      <div class="setrow col"><div class="tx"><b>Colour theme</b><span>Repaint Surra in the colours of Sweden. Two more themes unlock as you practise.</span></div>
+        <${ThemePicker} s=${s} /></div>
+      <div class="setrow"><div class="tx"><b>Light or dark</b><span>Follow your device, or pick one.</span></div>
+        <${Seg} label="Light or dark" value=${s.settings.mode || 'auto'} options=${[{ v: 'auto', l: 'Auto' }, { v: 'light', l: 'Light' }, { v: 'dark', l: 'Dark' }]} onChange=${v => set(x => { x.settings.mode = v; })} /></div>
+    </section>
     <section class="card">
       <div class="setrow"><div class="tx"><b>Daily goal</b><span>XP to earn each day. A lesson earns roughly 50–200 XP, depending on accuracy.</span></div>
         <${Seg} label="Daily goal" value=${s.goal} options=${GOALS.map(g => ({ v: g.v, l: `${g.sv} ${g.v}` }))} onChange=${v => set(x => { x.goal = v; })} /></div>
@@ -1082,6 +1113,7 @@ function Celebrate() {
 /* ---------- app shell */
 function App() {
   const s = useApp();
+  useEffect(() => { applyTheme(s.settings); }, [s.settings.palette, s.settings.mode, themeOpen(s, themeById(s.settings.palette))]);
   const [view, setView] = useState(() => (S().onboarded ? { name: 'home' } : { name: 'onboard' }));
   const [sheet, setSheet] = useState(null);
   useEffect(() => { if (s.onboarded && view.name === 'onboard') setView({ name: 'home' }); }, [s.onboarded]);

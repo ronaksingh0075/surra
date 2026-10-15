@@ -16,7 +16,14 @@ const write = (file, data) => { fs.mkdirSync(path.dirname(file), { recursive: tr
 const kb = f => (fs.statSync(f).size / 1024).toFixed(1) + ' KB';
 
 const map = JSON.parse(rd('mapdata.json'));
-const FILES = ['data_a.js', 'data_b.js', 'facts.js', '@map', 'core.js', 'account.js', 'ui.js', 'ui_account.js', 'boot.js'];
+// colours for the pre-paint script, so a chosen theme shows from the first frame (no flash of the default palette)
+function prepaint() {
+  const vm = require('vm'); const ctx = {}; vm.createContext(ctx);
+  vm.runInContext(rd('themes.js') + '\n;this.THEMES=THEMES;this.THEME_VARS=THEME_VARS;', ctx);
+  const P = {}; for (const t of ctx.THEMES) P[t.id] = t.base ? { b: [t.light.bg, t.dark.bg] } : { l: t.light, d: t.dark };
+  return `<script>try{(function(){var s=JSON.parse(localStorage.getItem('surra.progress.v1')||'null'),o=(s&&s.settings)||{},P=${JSON.stringify(P)},t=P[o.palette]||P.mysig,f=o.mode==='light'||o.mode==='dark',m=f?o.mode:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),r=document.documentElement,c=t.b?{bg:t.b[m==='dark'?1:0]}:t[m==='dark'?'d':'l'];if(f)r.setAttribute('data-theme',m);if(!t.b)for(var k in c)r.style.setProperty('--'+k,c[k]);r.style.background=c.bg;r.style.colorScheme=m;var e=document.querySelectorAll('meta[name=theme-color]');for(var i=0;i<e.length;i++){e[i].setAttribute('content',c.bg);e[i].removeAttribute('media')}})()}catch(e){}</script>`;
+}
+const FILES = ['data_a.js', 'data_b.js', 'facts.js', '@map', 'core.js', 'themes.js', 'account.js', 'ui.js', 'ui_account.js', 'boot.js'];
 function bundle(build) {
   return [
     '(function () {',
@@ -88,6 +95,7 @@ async function buildPwa() {
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+${prepaint()}
 <link rel="preload" href="fonts/nunito-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="app.css">
 </head>

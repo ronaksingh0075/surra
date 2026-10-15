@@ -73,7 +73,7 @@ function freshState() {
     v: 1, onboarded: false, start: 'A2', goal: 60, xp: 0,
     streak: { count: 0, last: null, best: 0 }, log: {}, lessons: {}, checkpoints: {}, cpTried: {}, mistakes: {}, ach: {},
     stats: { answers: 0, correct: 0, bestCombo: 0, talks: 0, ownGood: 0, quickBest: 0, perfect: 0, fixed: 0 },
-    settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true },
+    settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto' },
     profile: { name: '', avatar: 'bee', color: 'fjord' }, owner: null,
     createdAt: Date.now(), updatedAt: 0,
   };
@@ -95,7 +95,8 @@ const STORE = cell(withDefaults(readLocal()));
 const S = () => STORE.get();
 let newAchievements = [];
 function update(fn) {
-  const next = $clone(STORE.get());
+  const prev = STORE.get();
+  const next = $clone(prev);
   fn(next);
   evalAchievements(next);
   next.updatedAt = Date.now();
@@ -103,6 +104,8 @@ function update(fn) {
   persist(next);
   const fresh = newAchievements; newAchievements = [];
   fresh.forEach((id, i) => { const a = ACH.find(x => x.id === id); if (a) setTimeout(() => toast(`Badge unlocked: ${a.sv}`, a.icon), 500 + i * 700); });
+  THEMES.filter(t => t.unlock && !t.unlock.test(prev) && t.unlock.test(next))
+    .forEach((t, i) => setTimeout(() => toast(`New colour theme: ${t.sv}! Try it in Settings`, 'sparkle'), 900 + (fresh.length + i) * 700));
 }
 const useApp = () => STORE.use();
 
