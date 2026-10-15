@@ -258,7 +258,11 @@ async function promptInstall() {
 function initServiceWorker() {
   if (BUILD !== 'pwa' || !('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
   let reloading = false, wanted = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (wanted && !reloading) { reloading = true; location.reload(); } });
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (wanted && !reloading) { reloading = true; location.reload(); return; }
+    if (hadController && !reloading) UPDATE.set(() => { reloading = true; location.reload(); }); // a new version took over in the background
+  });
   navigator.serviceWorker.register('sw.js').then(reg => {
     const offer = w => UPDATE.set(() => { wanted = true; w.postMessage('skip'); });
     if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
