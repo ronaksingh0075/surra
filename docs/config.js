@@ -10,4 +10,9 @@ window.SURRA_CONFIG = {
     messagingSenderId: '245377506736',
     appId: '1:245377506736:web:8419ae20f3deb37182ca75',
   },
+  // The Surra notifier (notifier/README.md): its web app address and the public half of its push key.
+  notifier: {
+    url: 'https://script.google.com/macros/s/AKfycbxeVyXfOAJF9yEkUNF11DTKgbT8GCE6vbWZ7S3cSYLaocsRtBZSXlNNKQhPCfXVg2M/exec',
+    vapid: 'BOkzVvdO9K8nWs1QKxvNWAcWF3pzb6oIkhI8MRb87fiXdVTabd_Y_dqzeLkGBdz0o8PmOPXK4XNuTBBqZYKL_h4',
+  },
 };
