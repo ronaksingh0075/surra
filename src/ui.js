@@ -41,6 +41,12 @@ const ICONS = {
   download: ['M12 4v11', 'M7.5 10.5L12 15l4.5-4.5', 'M5 19.5h14'],
   trash: ['M4.5 7h15', 'M9.5 7V4.5h5V7', 'M6.5 7l1 13h9l1-13'],
   eye: ['M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z', circ(12, 12, 3)],
+  home: ['M3.5 11.2L12 4l8.5 7.2', 'M6 9.6V20h12V9.6', 'M10 20v-5.6h4V20'],
+  flask: ['M9 3.5h6', 'M10 3.5v6.2L4.9 18.1a1.6 1.6 0 0 0 1.4 2.4h11.4a1.6 1.6 0 0 0 1.4-2.4L14 9.7V3.5', 'M7.3 14.6h9.4'],
+  plus: 'M12 5v14M5 12h14', minus: 'M5 12h14',
+  locate: [circ(12, 12, 3.4), circ(12, 12, 7.5), 'M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22'],
+  fit: ['M4 9V4h5', 'M20 9V4h-5', 'M4 15v5h5', 'M20 15v5h-5'],
+  sign: ['M12 21.5V9', 'M5 3.5h11.5l3 3-3 3H5z', 'M9 21.5h6'],
   eyeOff: ['M3 3l18 18', 'M10.6 5.6A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.6 3.4', 'M6.3 6.8C3.9 8.4 2.5 12 2.5 12s3.5 6.5 9.5 6.5a9.3 9.3 0 0 0 4.4-1.1', 'M9.9 9.9a3 3 0 0 0 4.2 4.2'],
 };
 const GLYPHS = {
@@ -86,8 +92,8 @@ function SayBtn({ text, small }) {
   return html`<button class=${cx('iconbtn', small && 'small')} type="button" onClick=${e => { e.stopPropagation(); speak(text); }} aria-label="Listen (tap twice to hear it slower)" title="Listen · tap twice for slow"><${Icon} n="speaker" s=${small ? 17 : 22} /></button>`;
 }
 /* ---------- facts */
-function FactCard({ sid, i, fresh, city = true }) {
-  const f = FACTS[sid][i], th = FACT_THEMES[f.t];
+function FactCard({ sid, i, fact, fresh, city = true }) {
+  const f = fact || FACTS[sid][i], th = FACT_THEMES[f.t];
   return html`<article class=${cx('fact', 'f-' + f.t, fresh && 'fresh')}>
     <div class="fact-top"><span class="fact-th"><${Icon} n=${th.icon} s=${15} />${th.en}</span>${city ? html`<span class="fact-city">${STOPS[sid].city}</span>` : null}</div>
     <h3>${f.h}</h3>
@@ -95,9 +101,9 @@ function FactCard({ sid, i, fresh, city = true }) {
     <div class="fact-word"><${SayBtn} text=${f.w[0]} small /><span class="sv" lang="sv">${f.w[0]}</span><span class="en">${f.w[1]}</span></div>
   </article>`;
 }
-function LockedFact({ sid, i }) {
-  const f = FACTS[sid][i], th = FACT_THEMES[f.t];
-  return html`<div class=${cx('fact', 'locked', 'f-' + f.t)}><span class="fact-th"><${Icon} n=${th.icon} s=${15} />${th.en}</span><span class="lockline"><${Icon} n="lock" s=${15} />${factHint(i)}</span></div>`;
+function LockedFact({ sid, i, fact, hint }) {
+  const f = fact || FACTS[sid][i], th = FACT_THEMES[f.t];
+  return html`<div class=${cx('fact', 'locked', 'f-' + f.t)}><span class="fact-th"><${Icon} n=${th.icon} s=${15} />${th.en}</span><span class="lockline"><${Icon} n="lock" s=${15} />${hint || factHint(i)}</span></div>`;
 }
 function NewFacts({ sid, list }) {
   if (!sid || !list || !list.length) return null;
@@ -107,8 +113,8 @@ function NewFacts({ sid, list }) {
 function FactOfDay({ s }) {
   const d = dailyFact(s);
   const f = FACTS[d.sid][d.i], th = FACT_THEMES[f.t];
-  return html`<section class="area-fact" aria-label="Did you know?">
-    <div class="maphead" style="margin-bottom:8px"><span class="eyebrow">Did you know?</span><span class="chip num">${factsTotal(s)}/${FACT_TOTAL} facts</span></div>
+  return html`<section class="factday" aria-label="Did you know?">
+    <div class="sec-head" style="margin-bottom:8px;align-items:center"><span class="eyebrow">Did you know?</span><span class="chip num">${factsTotal(s)}/${FACT_TOTAL} facts</span></div>
     ${d.locked ? html`<div class=${cx('fact', 'teaser', 'f-' + f.t)}>
         <div class="fact-top"><span class="fact-th"><${Icon} n=${th.icon} s=${15} />${th.en}</span><span class="fact-city">${STOPS[d.sid].city}</span></div>
         <h3>${f.h}</h3>
@@ -120,14 +126,16 @@ function FactOfDay({ s }) {
 function FactShelf({ s }) {
   const [th, setTh] = useState('all');
   const total = factsTotal(s);
-  const items = ORDER.flatMap(sid => Array.from({ length: factsUnlocked(s, sid) }, (_, i) => [sid, i])).filter(([sid, i]) => th === 'all' || FACTS[sid][i].t === th);
+  const life = lifeOn(s);
+  const items = ORDER.flatMap(sid => [...Array.from({ length: factsUnlocked(s, sid) }, (_, i) => [sid, i, FACTS[sid][i]]), ...(life && LIFE_FACTS[sid] && lifeFactOpen(s, sid) ? [[sid, 'life', LIFE_FACTS[sid]]] : [])])
+    .filter(([, , f]) => th === 'all' || f.t === th);
   return html`<section class="card" style="margin-top:16px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2 class="display" style="font-size:26px">Fika facts</h2><span class="chip glow num">${total}/${FACT_TOTAL}</span></div>
     <p class="muted" style="font-size:14px;margin:4px 0 14px">Each lesson you finish at a stop unlocks a fact about Sweden. A gold stamp unlocks the fourth.</p>
     <div class="themechips" role="group" aria-label="Filter facts by theme">
-      ${[['all', 'All', null], ...Object.keys(FACT_THEMES).map(k => [k, FACT_THEMES[k].en, FACT_THEMES[k].icon])].map(([k, l, ic]) => html`<button class="chip" aria-pressed=${String(th === k)} onClick=${() => setTh(k)}>${ic ? html`<${Icon} n=${ic} s=${14} />` : null}${l}</button>`)}
+      ${[['all', 'All', null], ...Object.keys(FACT_THEMES).filter(k => k !== 'science' || life).map(k => [k, FACT_THEMES[k].en, FACT_THEMES[k].icon])].map(([k, l, ic]) => html`<button class="chip" aria-pressed=${String(th === k)} onClick=${() => setTh(k)}>${ic ? html`<${Icon} n=${ic} s=${14} />` : null}${l}</button>`)}
     </div>
-    ${items.length ? html`<div class="factgrid">${items.map(([sid, i]) => html`<${FactCard} key=${sid + i} sid=${sid} i=${i} />`)}</div>`
+    ${items.length ? html`<div class="factgrid">${items.map(([sid, i, f]) => html`<${FactCard} key=${sid + i} sid=${sid} fact=${f} />`)}</div>`
       : html`<div class="lockmsg" style="margin-top:12px"><${Icon} n="lock" /><span>${total ? 'No facts in this theme yet. Keep travelling.' : 'Finish a lesson to unlock your first fact.'}</span></div>`}
   </section>`;
 }
@@ -153,6 +161,7 @@ function useBodyLock(on) {
 function Sheet({ onClose, label, children }) {
   const ref = useRef(null);
   useBodyLock(true);
+  useBack(onClose);
   useEffect(() => {
     const prev = document.activeElement;
     if (ref.current) ref.current.focus();
@@ -164,88 +173,14 @@ function Sheet({ onClose, label, children }) {
     <div class="sheet" role="dialog" aria-modal="true" aria-label=${label} tabindex="-1" ref=${ref}><div class="grab"></div>${children}</div>`;
 }
 function Confirm({ title, text, yes, no, onYes, onNo, danger }) {
+  useBack(onNo);
   return html`<div class="confirm"><div class="scrim" onClick=${onNo}></div>
     <div class="box" role="alertdialog" aria-label=${title}><b style="font-size:18px">${title}</b>${text ? html`<p class="muted">${text}</p>` : null}
       <div class="row"><button class="btn ghost" onClick=${onNo}>${no}</button><button class=${cx('btn', danger ? 'bad' : 'primary')} onClick=${onYes}>${yes}</button></div></div></div>`;
 }
 
 /* ---------- the map */
-function JourneyMap({ s, onRegion, onStop, compact }) {
-  const M = MAP, P = M.cities;
-  const cur = currentStop(s);
-  const lit = sid => stopDone(s, sid) || LEVEL_INDEX[sid] < startIdx(s) || !!s.checkpoints[STOPS[sid].level];
-  const segs = [];
-  for (let i = 0; i < ORDER.length - 1; i++) {
-    const a = ORDER[i], b = ORDER[i + 1];
-    if (lit(a) && (lit(b) || b === cur)) segs.push(`M${P[a][0]} ${P[a][1]}L${P[b][0]} ${P[b][1]}`);
-  }
-  const trail = segs.join('');
-  const [bx, by] = P[cur];
-  const curName = STOPS[cur].city;
-  const pillW = 18 + curName.length * 6.6;
-  const pillX = bx + 14 + pillW > M.W ? bx - 14 - pillW : bx + 14;
-  const key = (fn) => e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
-  return html`<svg class="map" viewBox=${`0 0 ${M.W} ${M.H}`} role="group" aria-label="Map of Sweden with your route from Malmö to Kiruna">
-    <defs>
-      <radialGradient id="auA" cx="50%" cy="50%" r="50%"><stop offset="0" style="stop-color:var(--aurora-a);stop-opacity:.75" /><stop offset="1" style="stop-color:var(--aurora-a);stop-opacity:0" /></radialGradient>
-      <radialGradient id="auB" cx="50%" cy="50%" r="50%"><stop offset="0" style="stop-color:var(--aurora-b);stop-opacity:.6" /><stop offset="1" style="stop-color:var(--aurora-b);stop-opacity:0" /></radialGradient>
-    </defs>
-    <rect class="m-sea" x="0" y="0" width=${M.W} height=${M.H} />
-    ${M.neighbours.map(p => html`<polygon class="m-nb" points=${p} />`)}
-    ${M.sweden.map(p => html`<polygon class="m-land" points=${p} />`)}
-    ${M.lakes.map(p => html`<polygon class="m-lake" points=${p} />`)}
-    <g class="aurora" aria-hidden="true">
-      <ellipse cx="300" cy="120" rx="150" ry="60" fill="url(#auA)" transform="rotate(-18 300 120)" />
-      <ellipse cx="210" cy="70" rx="140" ry="44" fill="url(#auB)" transform="rotate(-10 210 70)" />
-    </g>
-    <polyline class="m-route" points=${ORDER.map(sid => P[sid].join(',')).join(' ')} />
-    ${trail ? html`<path class="m-trail-glow" d=${trail} /><path class="m-trail" d=${trail} />` : null}
-    ${ORDER.map(sid => html`<circle class=${cx('m-dot', stopDone(s, sid) ? 'done' : stopOpen(s, sid) && 'open')} cx=${P[sid][0]} cy=${P[sid][1]} r=${stopDone(s, sid) ? 3.6 : 3} />`)}
-    ${LEVELS.map((L, li) => {
-      const st = levelState(s, li);
-      const [mx, my] = L.marker;
-      const cxm = L.stops.reduce((a, sid) => a + P[sid][0], 0) / 4, cym = L.stops.reduce((a, sid) => a + P[sid][1], 0) / 4;
-      const done = L.stops.filter(sid => stopDone(s, sid)).length;
-      const label = `${L.id} ${L.region}: ${st === 'locked' ? 'locked' : st === 'passed' ? 'checkpoint passed' : `${done} of 4 stops done`}`;
-      const act = () => onRegion && onRegion(li);
-      return html`<g class=${cx('m-region', st)} role=${compact ? null : 'button'} tabindex=${compact ? null : 0} aria-label=${label} onClick=${compact ? null : act} onKeyDown=${compact ? null : key(act)}>
-        <line class="m-lead" x1=${mx} y1=${my} x2=${cxm} y2=${cym} />
-        <circle class="halo" cx=${mx} cy=${my} r="27" />
-        <circle cx=${mx} cy=${my} r="28" fill="transparent" />
-        <circle class="disc" cx=${mx} cy=${my} r="19" />
-        <text class="code" x=${mx} y=${my + 1}>${L.id}</text>
-        <text class="lbl" x=${L.lab === 'right' ? mx + 25 : mx} y=${L.lab === 'right' ? my - 1 : my + 35} text-anchor=${L.lab === 'right' ? 'start' : 'middle'}>${L.region}</text>
-        <text class="sub" x=${L.lab === 'right' ? mx + 25 : mx} y=${L.lab === 'right' ? my + 12 : my + 48} text-anchor=${L.lab === 'right' ? 'start' : 'middle'}>${st === 'locked' ? 'Locked' : st === 'passed' ? 'Passed' : `${done}/4 stops`}</text>
-      </g>`;
-    })}
-    <g role=${compact ? null : 'button'} tabindex=${compact ? null : 0} aria-label=${`You are here: ${curName}`} onClick=${compact ? null : () => onStop && onStop(cur)} onKeyDown=${compact ? null : key(() => onStop && onStop(cur))} style=${compact ? '' : 'cursor:pointer'}>
-      <rect class="m-herebg" x=${pillX} y=${by - 22} width=${pillW} height="19" rx="9.5" />
-      <text class="m-here" x=${pillX + pillW / 2} y=${by - 9} text-anchor="middle">${curName}</text>
-      <g transform=${`translate(${bx} ${by - 6})`} class="bee"><${BeeShape} /></g>
-    </g>
-  </svg>`;
-}
-
 /* ---------- home */
-const fmtShort = n => (n < 10000 ? fmtN(n) : n < 1e6 ? (n / 1000).toFixed(n < 1e5 ? 1 : 0).replace(/\.0$/, '') + 'k' : (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M');
-function TopBar({ s, go }) {
-  const streak = liveStreak(s), tx = todayXP(s), lit = s.streak.last === today();
-  return html`<header class="topbar">
-    <button class="brand" onClick=${() => go({ name: 'home' })} aria-label="Surra home"><${BeeLogo} /><span class="display">Surra</span></button>
-    <div class="stats" role="group" aria-label="Your progress">
-      <button class=${cx('stat', lit && 'lit')} onClick=${() => go({ name: 'pass' })} aria-label=${`${streak} day streak${lit ? ', practised today' : ''}`} title="Streak">
-        <span class="si"><${Icon} n="candle" s=${19} /></span><span class="num">${streak}</span><span class="unit">${streak === 1 ? 'day' : 'days'}</span></button>
-      <button class="stat" onClick=${() => go({ name: 'pass' })} aria-label=${`${s.xp} XP in total`} title="Total XP">
-        <span class="si gold"><${Icon} n="star" s=${17} fill /></span><span class="num">${fmtShort(s.xp)}</span><span class="unit">XP</span></button>
-      <button class="stat" onClick=${() => go({ name: 'pass' })} aria-label=${`${tx} of ${s.goal} XP today`} title="Daily goal">
-        <${Ring} v=${tx} max=${s.goal} size=${20} /><span class="num">${fmtShort(tx)}/${s.goal}</span><span class="unit">today</span></button>
-    </div>
-    <div class="actions">
-      <${ProfileButton} s=${s} go=${go} />
-      <button class="iconbtn plain" onClick=${() => go({ name: 'settings' })} aria-label="Settings"><${Icon} n="gear" /></button>
-    </div>
-  </header>`;
-}
 function ContinueCard({ s, startAction, openStop, openRegion }) {
   const a = nextAction(s);
   if (a.type === 'lesson') {
@@ -280,7 +215,7 @@ function ContinueCard({ s, startAction, openStop, openRegion }) {
 }
 function JourneyList({ s, openStop, openRegion }) {
   const cur = currentStop(s);
-  return html`<section class="journey area-list" aria-label="All stops">
+  return html`<section class="journey" aria-label="All stops">
     ${LEVELS.map((L, li) => {
       const ls = levelState(s, li), done = L.stops.filter(sid => stopDone(s, sid)).length;
       return html`<div class=${cx('leg', ls)} key=${L.id}>
@@ -307,36 +242,6 @@ function JourneyList({ s, openStop, openRegion }) {
     })}
   </section>`;
 }
-function Home({ s, go, startAction, openStop, openRegion }) {
-  const env = ENV.use();
-  const mistakes = Object.keys(s.mistakes).length;
-  const stamps = ORDER.filter(sid => stopDone(s, sid)).length;
-  return html`<div class="wrap">
-    <${TopBar} s=${s} go=${go} />
-    <div class="home-grid">
-      <div class="area-cont stack">
-        <${ContinueCard} s=${s} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} />
-        <${AccountNudge} s=${s} go=${go} />
-      </div>
-      <nav class="quick area-quick" aria-label="Practice">
-        <button class="qbtn" onClick=${() => startAction({ type: 'review' })}><span class="qi"><${Icon} n="refresh" s=${19} /></span><b>Review ${mistakes ? html`<span class="badge">${mistakes}</span>` : null}</b><span>${mistakes ? 'Fix your tricky items' : 'A mixed refresher'}</span></button>
-        <button class="qbtn" onClick=${() => startAction({ type: 'quick' })}><span class="qi"><${Icon} n="timer" s=${19} /></span><b>Snabbsvar</b><span>60 seconds of quick replies</span></button>
-        <button class="qbtn" onClick=${() => go({ name: 'pass' })}><span class="qi"><${Icon} n="stamp" s=${19} /></span><b>Passport</b><span>${stamps}/20 stamps · badges</span></button>
-      </nav>
-      <${FactOfDay} s=${s} />
-      <section class="mapcard area-map" aria-label="Journey map">
-        <div class="maphead"><span class="eyebrow">Malmö → Kiruna</span><span class="chip glow">${LEVELS[highestLevel(s)].rank}</span></div>
-        <${JourneyMap} s=${s} onRegion=${openRegion} onStop=${openStop} />
-      </section>
-      <${JourneyList} s=${s} openStop=${openStop} openRegion=${openRegion} />
-    </div>
-    <footer class="foot">
-      <span>${env.sync === 'account' ? 'Progress syncs to your Claude account.' : env.sync === 'cloud' ? 'Progress is backed up to your Surra account.' : 'Progress is saved on this device.'}</span>
-      <button class="linkbtn" onClick=${() => go({ name: 'settings' })}>Settings</button>
-    </footer>
-  </div>`;
-}
-
 /* ---------- sheets */
 function RegionSheet({ li, s, onClose, openStop, start }) {
   const L = LEVELS[li], nx = LEVELS[li + 1], unlocked = levelUnlocked(s, li), passed = !!s.checkpoints[L.id];
@@ -401,6 +306,11 @@ function StopSheet({ sid, s, onClose, start }) {
           <span class="tx"><b>${LESSON_META[l].en} <span class="faint" style="font-weight:700">· ${LESSON_META[l].sv}</span></b><span>${l === 'talk' ? talkDesc : LESSON_META[l].desc}</span></span>
           <${Stars} n=${starsOf(s, sid, l)} />
         </button>`)}
+        ${lifeOn(s) && LIFE[sid] ? html`<button class=${cx('lessonrow', 'liferow')} onClick=${() => start({ type: 'lesson', sid, lesson: 'life' })}>
+          <span class="li"><${Icon} n="flask" /></span>
+          <span class="tx"><b>${LIFE[sid].en} <span class="faint" style="font-weight:700">· Life science</span></b><span>${LIFE[sid].intro}</span></span>
+          <${Stars} n=${starsOf(s, sid, 'life')} />
+        </button>` : null}
         ${env.ai === 'ready' ? html`<button class="lessonrow" onClick=${() => start({ type: 'generate', sid })}>
           <span class="li"><${Icon} n="sparkle" /></span>
           <span class="tx"><b>Fresh situations</b><span>Claude writes 6 new reply drills on this theme</span></span>
@@ -410,7 +320,8 @@ function StopSheet({ sid, s, onClose, start }) {
       : html`<div class="section lockmsg"><${Icon} n="lock" /><span>${lockReason(s, sid)}</span></div>`}
     <div class="section"><div class="tip"><${Icon} n="bulb" /><span><b>Culture note.</b> ${st.culture}</span></div></div>
     <div class="section"><span class="eyebrow">Did you know? · ${factsUnlocked(s, sid)}/${FACTS[sid].length}</span>
-      <div class="factlist">${FACTS[sid].map((f, i) => (i < factsUnlocked(s, sid) ? html`<${FactCard} key=${i} sid=${sid} i=${i} city=${false} />` : html`<${LockedFact} key=${i} sid=${sid} i=${i} />`))}</div>
+      <div class="factlist">${FACTS[sid].map((f, i) => (i < factsUnlocked(s, sid) ? html`<${FactCard} key=${i} sid=${sid} i=${i} city=${false} />` : html`<${LockedFact} key=${i} sid=${sid} i=${i} />`))}
+        ${lifeOn(s) && LIFE_FACTS[sid] ? (lifeFactOpen(s, sid) ? html`<${FactCard} sid=${sid} fact=${LIFE_FACTS[sid]} city=${false} />` : html`<${LockedFact} sid=${sid} fact=${LIFE_FACTS[sid]} hint="Finish any lesson here to unlock" />`) : null}</div>
     </div>
     <div class="section"><span class="eyebrow">Key phrases</span>
       ${st.phrases.slice(0, all ? 8 : 4).map(p => html`<div class="phrase"><${SayBtn} text=${p[0]} small /><div class="tx"><div class="sv">${p[0]}</div><div class="en">${p[1]}</div></div></div>`)}
@@ -599,7 +510,8 @@ function Results({ lesson, result, onExit, onNext }) {
       <div class="stamp on slam" style="width:124px"><div class="in"><${Glyph} n=${st.glyph} s=${34} /><span class="nm">${st.city}</span><span class="lv">${st.level}</span></div></div>
       <b>New stamp in your passport</b></div>` : null}
     <${NewFacts} sid=${lesson.sid} list=${result.newFacts} />
-    <div class="actions"><button class="btn primary wide" onClick=${onNext}>Continue<${Icon} n="arrowR" s=${20} /></button><button class="btn ghost wide" onClick=${onExit}>Back to map</button></div>
+    ${result.newLifeFact && lifeOn(S()) ? html`<div class="newfact"><span class="eyebrow newfact-label"><${Icon} n="flask" s=${15} />Life-science signpost unlocked</span><${FactCard} sid=${lesson.sid} fact=${LIFE_FACTS[lesson.sid]} fresh city=${false} /></div>` : null}
+    <div class="actions"><button class="btn primary wide" onClick=${onNext}>Continue<${Icon} n="arrowR" s=${20} /></button><button class="btn ghost wide" onClick=${onExit}>Done</button></div>
   </div>`;
 }
 function Player({ lesson, onExit, onNext }) {
@@ -616,6 +528,7 @@ function Player({ lesson, onExit, onNext }) {
   const contRef = useRef(null), bodyRef = useRef(null);
   const q = queue[idx];
   useBodyLock(true);
+  useBack(() => (phase === 'done' ? onExit() : setAskExit(true)), !askExit);
   const check = (ok, extra = {}) => {
     const st = stat.current, first = !st.seen[q.uid];
     st.seen[q.uid] = true;
@@ -718,6 +631,7 @@ function Talk({ sid, onExit, onNext, onRestart, onGuided }) {
   useEffect(() => { if (card && bodyRef.current) bodyRef.current.scrollTop = 0; }, [card]);
   const showEn = s.settings.translations === 'show';
   useBodyLock(true);
+  useBack(() => (card || mine === 0 ? onExit() : setAskExit(true)), !askExit);
   useEffect(() => { if (endRef.current) endRef.current.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, [msgs.length, busy, ended, scoring]);
   useEffect(() => () => { if (ctl.current) ctl.current.abort(); }, []);
   useEffect(() => { if (env.ai === 'off' && !card && mine === 0) onGuided(); }, [env.ai]);
@@ -793,7 +707,7 @@ function Talk({ sid, onExit, onNext, onRestart, onGuided }) {
         ${card.went_well.length ? html`<div class="scorecard"><span class="eyebrow">What worked</span><ul>${card.went_well.map(w => html`<li>${w}</li>`)}</ul></div>` : null}
         ${card.fixes.length ? html`<div class="scorecard"><span class="eyebrow">Polish these</span>${card.fixes.map(f => html`<div class="fixrow">${f.you ? html`<span class="you">${f.you}</span>` : null}<span class="better" style="display:flex;gap:8px;align-items:center"><span style="flex:1">${f.better}</span><${SayBtn} text=${f.better} small /></span>${f.why ? html`<span class="muted" style="font-size:14px">${f.why}</span>` : null}</div>`)}</div>` : null}
         ${card.phrases.length ? html`<div class="scorecard"><span class="eyebrow">Phrases for next time</span>${card.phrases.map(p => html`<div class="phrase"><${SayBtn} text=${p.sv} small /><div class="tx"><div class="sv">${p.sv}</div><div class="en">${p.en}</div></div></div>`)}</div>` : null}
-        <div class="actions" style="justify-self:center"><button class="btn primary wide" onClick=${onNext}>Continue the journey<${Icon} n="arrowR" s=${20} /></button><button class="btn ghost wide" onClick=${onRestart}>Talk again</button><button class="btn ghost wide" onClick=${onExit}>Back to map</button></div>
+        <div class="actions" style="justify-self:center"><button class="btn primary wide" onClick=${onNext}>Continue the journey<${Icon} n="arrowR" s=${20} /></button><button class="btn ghost wide" onClick=${onRestart}>Talk again</button><button class="btn ghost wide" onClick=${onExit}>Done</button></div>
       </div></div></div></div>`;
   }
   return html`<div class="room" role="dialog" aria-modal="true" aria-label=${`Conversation: ${v.title}`}>${head}
@@ -849,6 +763,7 @@ function Generate({ sid, onExit, onReady }) {
   const [err, setErr] = useState('');
   const [k, setK] = useState(0);
   useBodyLock(true);
+  useBack(onExit);
   useEffect(() => {
     const c = new AbortController();
     setErr('');
@@ -884,8 +799,11 @@ function Quick({ onExit }) {
   const [res, setRes] = useState(null);
   const sc = useRef(0), lock = useRef(false);
   useBodyLock(true);
+  useBack(onExit);
+  const labPool = useMemo(() => (lifeFirst(s) ? LIFE_IDS.filter(sid => stopOpen(s, sid)) : []), []);
   const nextQ = () => {
     const sid = rnd(pool);
+    if (labPool.length && Math.random() < 0.3) { const ls = rnd(labPool); setQ(lifeReplyQ(ls, Math.floor(Math.random() * LIFE[ls].replies.length))); lock.current = false; return; }
     setQ(Math.random() < 0.6 ? replyQ(sid, Math.floor(Math.random() * 6)) : phraseQ(sid, Math.floor(Math.random() * 8), 'sv2en'));
     lock.current = false;
   };
@@ -926,7 +844,7 @@ function Quick({ onExit }) {
           <div class="eyebrow">${res.record ? 'New personal best!' : 'Time!'}</div>
           <h2 class="num">${res.score} right</h2>
           <div class="resgrid"><div><b>+${res.xp}</b><span>XP</span></div><div><b>${res.best}</b><span>Best</span></div><div><b>60s</b><span>Time</span></div></div>
-          <div class="actions"><button class="btn primary wide" onClick=${start}>Play again</button><button class="btn ghost wide" onClick=${onExit}>Back to map</button></div>
+          <div class="actions"><button class="btn primary wide" onClick=${start}>Play again</button><button class="btn ghost wide" onClick=${onExit}>Done</button></div>
         </div>`
       : q ? html`<div key=${q.uid}>
           ${q.kind === 'reply' ? html`<div class="say"><div class="avatar" aria-hidden="true">${initialOf(q.who)}</div><div class="bubble" style="flex:1"><div class="eyebrow" style="margin-bottom:4px">${q.who}</div><div class="big">${q.say}</div>${q.cue ? html`<div class="en">${q.cue}</div>` : null}</div></div>`
@@ -945,15 +863,15 @@ function Candles({ s, big }) {
     <div class="candles">${days.map((d, i) => html`<div class=${cx('c', s.log[d] > 0 && 'on')}><span class="flame"></span><span class="stick" style=${`height:${hts[i]}px`}></span><span class="d faint" style="font-size:10px;font-weight:900;margin-top:4px">${lbl[i]}</span></div>`)}</div>
   </div>`;
 }
-function Pass({ go }) {
+function Pass({ go, embedded }) {
   const s = useApp();
   const days = weekDays();
   const mx = Math.max(s.goal, ...days.map(d => s.log[d] || 0));
   const acc = s.stats.answers ? Math.round((100 * s.stats.correct) / s.stats.answers) : 0;
   const stamps = ORDER.filter(sid => stopDone(s, sid)).length;
   const t = today();
-  return html`<div class="wrap">
-    <div class="page-head"><button class="iconbtn" onClick=${() => go({ name: 'home' })} aria-label="Back to map"><${Icon} n="arrowL" /></button><h1>Your passport</h1></div>
+  return html`<div class=${embedded ? '' : 'wrap'}>
+    ${embedded ? html`<h1 class="pagetitle display">Your passport</h1>` : html`<div class="page-head"><button class="iconbtn" onClick=${() => go({ name: 'home' })} aria-label="Back"><${Icon} n="arrowL" /></button><h1>Your passport</h1></div>`}
     <div class="grid2">
       <section class="card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
@@ -1014,12 +932,17 @@ function ThemePicker({ s }) {
     })}
   </div>`;
 }
-function Settings({ go }) {
+const WORK_HELP = {
+  general: 'Everyday office scenarios in role-plays and drills.',
+  mix: 'Office and life-science scenarios, plus a lab lesson at each work stop and science signposts on the map.',
+  life: 'Lab and industry Swedish everywhere: lab lessons, life-science replies in Respond, science signposts and pharma role-plays.',
+};
+function Settings({ go, embedded }) {
   const s = useApp(), env = ENV.use();
   const [reset, setReset] = useState(false);
   const set = fn => update(fn);
-  return html`<div class="wrap" style="max-width:760px">
-    <div class="page-head"><button class="iconbtn" onClick=${() => go({ name: 'home' })} aria-label="Back to map"><${Icon} n="arrowL" /></button><h1>Settings</h1></div>
+  return html`<div class=${embedded ? '' : 'wrap'} style=${embedded ? '' : 'max-width:760px'}>
+    ${embedded ? null : html`<div class="page-head"><button class="iconbtn" onClick=${() => go({ name: 'home' })} aria-label="Back"><${Icon} n="arrowL" /></button><h1>Settings</h1></div>`}
     <section class="card" style="margin-bottom:16px">
       <div class="setrow col"><div class="tx"><b>Colour theme</b><span>Repaint Surra in the colours of Sweden. Two more themes unlock as you practise.</span></div>
         <${ThemePicker} s=${s} /></div>
@@ -1031,8 +954,8 @@ function Settings({ go }) {
         <${Seg} label="Daily goal" value=${s.goal} options=${GOALS.map(g => ({ v: g.v, l: `${g.sv} ${g.v}` }))} onChange=${v => set(x => { x.goal = v; })} /></div>
       <div class="setrow"><div class="tx"><b>Starting level</b><span>Levels up to this one are open. Higher levels unlock through checkpoints.</span></div>
         <${Seg} label="Starting level" value=${s.start} options=${LEVEL_IDS.map(id => ({ v: id, l: id }))} onChange=${v => set(x => { x.start = v; })} /></div>
-      <div class="setrow"><div class="tx"><b>Work scenarios</b><span>Setting for the work role-plays and Claude-written drills.</span></div>
-        <${Seg} label="Work scenarios" value=${s.settings.work} options=${[{ v: 'mix', l: 'Mix' }, { v: 'general', l: 'Office' }, { v: 'life', l: 'Life sciences' }]} onChange=${v => set(x => { x.settings.work = v; })} /></div>
+      <div class="setrow"><div class="tx"><b>Your field</b><span>${WORK_HELP[s.settings.work] || WORK_HELP.mix}</span></div>
+        <${Seg} label="Your field" value=${s.settings.work} options=${[{ v: 'mix', l: 'Mix' }, { v: 'general', l: 'Office' }, { v: 'life', l: 'Life sciences' }]} onChange=${v => set(x => { x.settings.work = v; })} /></div>
       <div class="setrow"><div class="tx"><b>English translations</b><span>Show them right away, or tap to reveal for more challenge.</span></div>
         <${Seg} label="English translations" value=${s.settings.translations} options=${[{ v: 'show', l: 'Show' }, { v: 'tap', l: 'Tap to reveal' }]} onChange=${v => set(x => { x.settings.translations = v; })} /></div>
       <div class="setrow"><div class="tx"><b>Speech speed</b><span>${env.tts ? 'Uses a Swedish voice on your device. Tap a speaker twice to hear it slower.' : "No Swedish voice was found on this device. Add one in your system's speech settings to hear audio."}</span></div>
@@ -1041,7 +964,7 @@ function Settings({ go }) {
         <${Seg} label="Sound effects" value=${s.settings.sound} options=${[{ v: true, l: 'On' }, { v: false, l: 'Off' }]} onChange=${v => set(x => { x.settings.sound = v; })} /></div>
     </section>
     <section class="card" style="margin-top:16px">
-      <${AccountRow} go=${go} />
+      ${embedded ? null : html`<${AccountRow} go=${go} />`}
       <${InstallRow} />
       <div class="setrow"><div class="tx"><b>Conversations with Claude</b><span>${env.ai === 'ready' ? 'Available. Role-plays and feedback use your own Claude account; you\'ll be asked to allow it the first time.' : env.ai === 'checking' ? 'Checking…' : BUILD === 'pwa' ? 'Live role-plays run in the claude.ai version of Surra. Here, conversations use the guided version.' : 'Not available on this page, so conversations use the guided version.'}</span></div></div>
       <div class="setrow"><div class="tx"><b>Your progress</b><span>${env.sync === 'account' ? 'Saved to your Claude account, so it follows you across devices.' : env.sync === 'cloud' ? 'Backed up to your Surra account, so it follows you across devices.' : 'Saved on this device only.'}</span></div></div>
@@ -1078,11 +1001,12 @@ function Onboarding({ done, go }) {
       <div class="card"><span class="eyebrow">Daily goal</span>
         <div style="margin-top:10px"><${Seg} label="Daily goal" value=${goal} options=${GOALS.slice(0, 3).map(g => ({ v: g.v, l: `${g.sv} · ${g.v} XP` }))} onChange=${setGoal} /></div>
         <p class="muted" style="font-size:13.5px;margin-top:8px">“Lagom” is about one lesson a day.</p>
-        <span class="eyebrow" style="display:block;margin-top:18px">Work scenarios</span>
-        <div style="margin-top:10px"><${Seg} label="Work scenarios" value=${work} options=${[{ v: 'mix', l: 'Mix' }, { v: 'general', l: 'Office' }, { v: 'life', l: 'Life sciences' }]} onChange=${setWork} /></div>
+        <span class="eyebrow" style="display:block;margin-top:18px">Your field</span>
+        <div style="margin-top:10px"><${Seg} label="Your field" value=${work} options=${[{ v: 'mix', l: 'Mix' }, { v: 'general', l: 'Office' }, { v: 'life', l: 'Life sciences' }]} onChange=${setWork} /></div>
+        <p class="muted" style="font-size:13.5px;margin-top:8px">${WORK_HELP[work]}</p>
       </div>
     </div>
-    <div class="mapcard" style="max-width:300px;justify-self:center;width:100%" aria-hidden="true"><${JourneyMap} s=${preview} compact /></div>
+    <div class="mapcard onb-map" aria-hidden="true"><${ZoomMap} s=${preview} interactive=${false} /></div>
     <button class="btn primary wide" style="max-width:420px;justify-self:center" onClick=${() => { update(x => { x.onboarded = true; x.start = start; x.goal = goal; x.settings.work = work; }); done(); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } }}>Start my journey<${Icon} n="arrowR" s=${20} /></button>
   </div></div>`;
 }
@@ -1096,6 +1020,7 @@ function Celebrate() {
   const c = CELEBRATE.use();
   const sparks = useMemo(() => Array.from({ length: 36 }, (_, i) => ({ l: Math.random() * 100, d: 2.4 + Math.random() * 2.4, w: Math.random() * 1.2, c: ['var(--glow)', 'var(--falu)', 'var(--moss)', 'var(--aurora-b)'][i % 4] })), [c]);
   useEffect(() => { if (c) sfx('level'); }, [c]);
+  useBack(() => CELEBRATE.set(null), !!c);
   if (!c) return null;
   const L = LEVELS[c.li], fin = !L;
   return html`<div class="celebrate" role="dialog" aria-modal="true" aria-label=${fin ? 'Journey complete' : `${L.region} unlocked`}>
@@ -1109,46 +1034,3 @@ function Celebrate() {
     </div>
   </div>`;
 }
-
-/* ---------- app shell */
-function App() {
-  const s = useApp();
-  useEffect(() => { applyTheme(s.settings); }, [s.settings.palette, s.settings.mode, themeOpen(s, themeById(s.settings.palette))]);
-  const [view, setView] = useState(() => (S().onboarded ? { name: 'home' } : { name: 'onboard' }));
-  const [sheet, setSheet] = useState(null);
-  useEffect(() => { if (s.onboarded && view.name === 'onboard') setView({ name: 'home' }); }, [s.onboarded]);
-  const go = v => { setSheet(null); setView(v); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } };
-  NAV.go = go;
-  const startAction = a => {
-    setSheet(null);
-    const k = Date.now();
-    if (a.type === 'lesson') {
-      if (!stopOpen(S(), a.sid)) { setSheet({ type: 'stop', sid: a.sid }); return; }
-      if (a.lesson === 'learn') setView({ name: 'lesson', lesson: lessonLearn(a.sid), k });
-      else if (a.lesson === 'reply') setView({ name: 'lesson', lesson: lessonReply(a.sid), k });
-      else setView(ENV.get().ai === 'off' ? { name: 'lesson', lesson: lessonGuided(a.sid), k } : { name: 'talk', sid: a.sid, k });
-    } else if (a.type === 'checkpoint') setView({ name: 'lesson', lesson: lessonCheckpoint(a.li), k });
-    else if (a.type === 'review') setView({ name: 'lesson', lesson: lessonReview(S()), k });
-    else if (a.type === 'quick') setView({ name: 'quick', k });
-    else if (a.type === 'generate') setView(ENV.get().ai === 'ready' ? { name: 'generate', sid: a.sid, k } : { name: 'home' });
-    else setView({ name: 'home' });
-  };
-  const toHome = () => setView({ name: 'home' });
-  const continueJourney = () => { const a = nextAction(S()); if (a.type === 'done') toHome(); else startAction(a); };
-  const openStop = sid => setSheet({ type: 'stop', sid });
-  const openRegion = li => setSheet({ type: 'region', li });
-  if (view.name === 'onboard') return html`<${Onboarding} done=${toHome} go=${go} /><${Toasts} /><${UpdateBanner} />`;
-  const base = view.name === 'pass' ? html`<${Pass} go=${go} />` : view.name === 'settings' ? html`<${Settings} go=${go} />`
-    : view.name === 'account' ? html`<${AccountPage} go=${go} mode=${view.mode} />`
-    : html`<${Home} s=${s} go=${go} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} />`;
-  let room = null;
-  if (view.name === 'lesson') room = html`<${Player} key=${view.k} lesson=${view.lesson} onExit=${toHome} onNext=${continueJourney} />`;
-  else if (view.name === 'talk') room = html`<${Talk} key=${view.k} sid=${view.sid} onExit=${toHome} onNext=${continueJourney} onRestart=${() => setView({ name: 'talk', sid: view.sid, k: Date.now() })} onGuided=${() => setView({ name: 'lesson', lesson: lessonGuided(view.sid), k: Date.now() })} />`;
-  else if (view.name === 'quick') room = html`<${Quick} key=${view.k} onExit=${toHome} />`;
-  else if (view.name === 'generate') room = html`<${Generate} key=${view.k} sid=${view.sid} onExit=${toHome} onReady=${lesson => setView({ name: 'lesson', lesson, k: Date.now() })} />`;
-  return html`${base}${room}
-    ${sheet && sheet.type === 'stop' ? html`<${StopSheet} key=${'s' + sheet.sid} sid=${sheet.sid} s=${s} onClose=${() => setSheet(null)} start=${startAction} />` : null}
-    ${sheet && sheet.type === 'region' ? html`<${RegionSheet} key=${'r' + sheet.li} li=${sheet.li} s=${s} onClose=${() => setSheet(null)} openStop=${openStop} start=${startAction} />` : null}
-    <${Toasts} /><${Celebrate} /><${UpdateBanner} />`;
-}
-

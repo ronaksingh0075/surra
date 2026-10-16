@@ -3,8 +3,8 @@ const fs = require('fs');
 const vm = require('vm');
 const ctx = {};
 vm.createContext(ctx);
-vm.runInContext(['data_a.js', 'data_b.js', 'facts.js'].map(f => fs.readFileSync(__dirname + '/../src/' + f, 'utf8')).join('\n') + '\n;this.LEVELS=LEVELS;this.STOPS=STOPS;this.FACTS=FACTS;this.FACT_THEMES=FACT_THEMES;', ctx);
-const { LEVELS, STOPS, FACTS, FACT_THEMES } = ctx;
+vm.runInContext(['data_a.js', 'data_b.js', 'facts.js', 'life.js'].map(f => fs.readFileSync(__dirname + '/../src/' + f, 'utf8')).join('\n') + '\n;this.LEVELS=LEVELS;this.STOPS=STOPS;this.FACTS=FACTS;this.FACT_THEMES=FACT_THEMES;this.LIFE=LIFE;this.LIFE_FACTS=LIFE_FACTS;', ctx);
+const { LEVELS, STOPS, FACTS, FACT_THEMES, LIFE, LIFE_FACTS } = ctx;
 
 const errs = [];
 const tok = s => s.replace(/[.,!?:;“”"–—]/g, ' ').split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
@@ -67,12 +67,48 @@ for (const lv of LEVELS) {
 }
 if (Object.keys(FACTS).length !== 20) errs.push('facts for unknown stops');
 
+// life-science track: lab lessons at work stops, and life-science signposts
+let lifeCount = { lessons: 0, phrases: 0, replies: 0, builds: 0, facts: 0 };
+const checkReply = (where, r) => {
+  if (!r.who || !r.say || !r.en) errs.push(`${where}: missing who/say/en`);
+  if (!r.opts || r.opts.length !== 3) { errs.push(`${where}: needs 3 options`); return; }
+  const ok = r.opts.filter(o => o[2] === 1).length; if (ok !== 1) errs.push(`${where}: ${ok} correct`);
+  r.opts.forEach((o, j) => { if (o.length !== 4 || !o[0] || !o[1] || !o[3]) errs.push(`${where} o${j}: malformed`); });
+  if (new Set(r.opts.map(o => o[0])).size !== 3) errs.push(`${where}: duplicate options`);
+};
+const checkBuild = (where, b) => {
+  const tiles = tok(b.sv).concat((b.extra || []).map(t => t.toLowerCase()));
+  for (const alt of (b.alt || [])) { const pool = tiles.slice(); for (const t of tok(alt)) { const k = pool.indexOf(t); if (k < 0) errs.push(`${where}: alt token "${t}" not in tiles`); else pool.splice(k, 1); } }
+  for (const e of (b.extra || [])) if (tok(b.sv).includes(e.toLowerCase())) errs.push(`${where}: extra "${e}" duplicates a real tile`);
+};
+for (const [sid, L] of Object.entries(LIFE)) {
+  const st = STOPS[sid];
+  if (!st) { errs.push(`life ${sid}: unknown stop`); continue; }
+  if (!['pro', 'mixed'].includes(st.reg)) errs.push(`life ${sid}: only work stops get a lab lesson`);
+  if (L.level !== st.level) errs.push(`life ${sid}: level ${L.level} != ${st.level}`);
+  for (const k of ['title', 'en', 'intro']) if (!L[k]) errs.push(`life ${sid}: missing ${k}`);
+  if (L.phrases.length !== 6) errs.push(`life ${sid}: ${L.phrases.length} phrases`);
+  L.phrases.forEach((p, i) => { if (p.length < 2 || !p[0] || !p[1]) errs.push(`life ${sid} p${i}: bad phrase`); });
+  if (new Set(L.phrases.map(p => p[1])).size !== L.phrases.length) errs.push(`life ${sid}: duplicate phrase translations`);
+  if (L.replies.length !== 4) errs.push(`life ${sid}: ${L.replies.length} replies`);
+  L.replies.forEach((r, i) => checkReply(`life ${sid} r${i}`, r));
+  if (L.builds.length !== 2) errs.push(`life ${sid}: ${L.builds.length} builds`);
+  L.builds.forEach((b, i) => checkBuild(`life ${sid} b${i}`, b));
+  lifeCount.lessons++; lifeCount.phrases += L.phrases.length; lifeCount.replies += L.replies.length; lifeCount.builds += L.builds.length;
+}
+for (const [sid, f] of Object.entries(LIFE_FACTS)) {
+  if (!STOPS[sid]) errs.push(`life fact ${sid}: unknown stop`);
+  if (f.t !== 'science' || !f.h || f.h.length > 44 || !f.b || f.b.split(/\s+/).length > 52 || !Array.isArray(f.w) || f.w.length !== 2) errs.push(`life fact ${sid}: malformed`);
+  lifeCount.facts++;
+}
+counts.life = lifeCount;
+
 // colour themes: every palette defines every token in both modes, and text stays readable (WCAG contrast)
 const tctx = {}; vm.createContext(tctx);
 vm.runInContext(fs.readFileSync(__dirname + '/../src/themes.js', 'utf8') + '\n;this.THEMES=THEMES;this.THEME_VARS=THEME_VARS;', tctx);
 const lum = hex => { const v = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
-const FIXED = { light: { moss: '#3B7A4E', lingon: '#C2394F', fx: ['#A93A2F', '#9A5A08', '#3B7A4E', '#6B4FC4'] }, dark: { moss: '#7CCB8F', lingon: '#F57E93', fx: ['#EC7A64', '#F6B44E', '#7CCB8F', '#B39BFF'] } };
+const FIXED = { light: { moss: '#3B7A4E', lingon: '#C2394F', fx: ['#A93A2F', '#9A5A08', '#3B7A4E', '#6B4FC4', '#0E7470'] }, dark: { moss: '#7CCB8F', lingon: '#F57E93', fx: ['#EC7A64', '#F6B44E', '#7CCB8F', '#B39BFF', '#5FD3C8'] } };
 const themeIds = new Set();
 for (const t of tctx.THEMES) {
   if (themeIds.has(t.id)) errs.push(`theme ${t.id}: duplicate id`); themeIds.add(t.id);

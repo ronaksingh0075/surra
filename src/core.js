@@ -25,6 +25,7 @@ const LESSON_META = {
   learn: { sv: 'Lär dig', en: 'Key phrases', desc: '8 phrases with audio, a quiz and a matching game', icon: 'book' },
   reply: { sv: 'Svara', en: 'Respond', desc: 'Pick, build and write the right reply in real situations', icon: 'bolt' },
   talk: { sv: 'Samtal', en: 'Conversation', desc: 'A live role-play with feedback on every message', icon: 'chat' },
+  life: { sv: 'Labbet', en: 'Life science', desc: 'Lab and industry Swedish: phrases, replies and sentences', icon: 'flask' },
 };
 const REG_LABEL = { casual: 'Vardag', pro: 'Jobb', mixed: 'Vardag & jobb' };
 const REG_EN = { casual: 'Casual', pro: 'Work', mixed: 'Casual + work' };
@@ -41,6 +42,7 @@ const ACH = [
   { id: 'quick15', sv: 'Blixtsnabb', en: '15 or more in Snabbsvar', icon: 'timer' },
   { id: 'fix10', sv: 'Envis', en: 'Fix 10 mistakes in review', icon: 'refresh' },
   { id: 'facts10', sv: 'Nyfiken', en: 'Unlock 10 “Did you know?” facts', icon: 'bulb' },
+  { id: 'lab5', sv: 'Labbråtta', en: 'Finish 5 life-science lessons', icon: 'flask' },
   { id: 'factsAll', sv: 'Allvetare', en: 'Unlock all 80 facts', icon: 'book' },
   { id: 'night', sv: 'Nattuggla', en: 'Practise after 22:00', icon: 'moon' },
   { id: 'morning', sv: 'Morgonpigg', en: 'Practise before 07:00', icon: 'sun' },
@@ -225,6 +227,14 @@ function stampState(s, sid) {
   if (!stopDone(s, sid)) return 'off';
   return ['learn', 'reply', 'talk'].every(l => starsOf(s, sid, l) >= 3) ? 'gold' : 'on';
 }
+/* ---------- life-science track (work focus: mix or life sciences) */
+const lifeOn = s => s.settings.work !== 'general';
+const lifeFirst = s => s.settings.work === 'life';
+const LIFE_IDS = ORDER.filter(sid => LIFE[sid]);
+const lifeFactOpen = (s, sid) => ['learn', 'reply', 'talk', 'life'].some(l => starsOf(s, sid, l) > 0);
+const lifeDone = s => LIFE_IDS.filter(sid => starsOf(s, sid, 'life') > 0).length;
+function nextLife(s) { return LIFE_IDS.find(sid => stopOpen(s, sid) && !starsOf(s, sid, 'life')) || null; }
+
 /* ---------- facts: each lesson finished at a stop unlocks one; the gold stamp unlocks the fourth */
 const FACT_TOTAL = ORDER.reduce((a, sid) => a + (FACTS[sid] || []).length, 0);
 function factsUnlocked(s, sid) {
@@ -276,6 +286,7 @@ function evalAchievements(s) {
   if (ORDER.every(sid => stopDone(s, sid))) addAch(s, 'all20');
   const ft = factsTotal(s);
   if (ft >= 10) addAch(s, 'facts10');
+  if (lifeDone(s) >= 5) addAch(s, 'lab5');
   if (ft >= FACT_TOTAL) addAch(s, 'factsAll');
 }
 function talkVariant(stop, work) {
@@ -314,8 +325,31 @@ function phraseQ(sid, i, dir, pool) {
     opts: shuffle([sv2en ? p[1] : p[0], ...others.map(o => sv2en ? o[1] : o[0])]),
   };
 }
+function lifeReplyQ(sid, i) {
+  const r = LIFE[sid] && LIFE[sid].replies[i]; if (!r) return null;
+  return { kind: 'reply', uid: uid(), key: `${sid}:lr${i}`, sid, who: r.who, say: r.say, en: r.en, cue: r.cue, opts: shuffle(r.opts.map(optObj)), life: true };
+}
+function lifeBuildQ(sid, i) {
+  const b = LIFE[sid] && LIFE[sid].builds[i]; if (!b) return null;
+  const real = tokens(b.sv).map(tileText);
+  const tiles = shuffle(real.concat(b.extra || []).map((t, k) => ({ id: k, t })));
+  return { kind: 'build', uid: uid(), key: `${sid}:lb${i}`, sid, en: b.en, sv: b.sv, alt: b.alt || [], note: b.note, tiles, life: true };
+}
+function lifePhraseQ(sid, i, dir) {
+  const ph = LIFE[sid] && LIFE[sid].phrases; const p = ph && ph[i]; if (!p) return null;
+  const others = pickN(ph.map((_, j) => j).filter(j => j !== i), 3).map(j => ph[j]);
+  const sv2en = dir === 'sv2en';
+  return { kind: 'quiz', uid: uid(), key: `${sid}:lp${i}`, sid, dir, prompt: sv2en ? p[0] : p[1], answer: sv2en ? p[1] : p[0], pair: p, opts: shuffle([sv2en ? p[1] : p[0], ...others.map(o => (sv2en ? o[1] : o[0]))]), life: true };
+}
 function qFromKey(key) {
   const [sid, part] = String(key).split(':'); if (!STOPS[sid] || !part) return null;
+  if (part[0] === 'l') {
+    const t = part[1], i = Number(part.slice(2));
+    if (t === 'r') return lifeReplyQ(sid, i);
+    if (t === 'b') return lifeBuildQ(sid, i);
+    if (t === 'p') return lifePhraseQ(sid, i, Math.random() < 0.5 ? 'sv2en' : 'en2sv');
+    return null;
+  }
   const t = part[0], i = Number(part.slice(1));
   if (t === 'r') return replyQ(sid, i);
   if (t === 'b') return buildQ(sid, i);
@@ -334,12 +368,22 @@ function lessonLearn(sid) {
 }
 function lessonReply(sid) {
   const st = STOPS[sid];
-  const R = shuffle(st.replies.map((_, i) => replyQ(sid, i)));
+  let R = shuffle(st.replies.map((_, i) => replyQ(sid, i)));
+  if (LIFE[sid] && lifeFirst(S())) R = shuffle([...R.slice(0, 4), ...pickN(LIFE[sid].replies.map((_, i) => i), 2).map(i => lifeReplyQ(sid, i))]);
   const O = shuffle([...st.builds.map((_, i) => buildQ(sid, i)), ...(st.gaps || []).map((_, i) => gapQ(sid, i))]);
   const out = []; let oi = 0;
   R.forEach((r, k) => { out.push(r); if (k % 2 === 1 && oi < O.length) out.push(O[oi++]); });
   while (oi < O.length) out.push(O[oi++]);
   return { type: 'reply', sid, title: `${st.city} · Respond`, questions: out };
+}
+function lessonLife(sid) {
+  const L = LIFE[sid], qs = [];
+  L.phrases.forEach((p, i) => qs.push({ kind: 'card', uid: uid(), sid, i, phrase: p }));
+  pickN(L.phrases.map((_, i) => i), 3).forEach((i, n) => qs.push(lifePhraseQ(sid, i, n % 2 ? 'en2sv' : 'sv2en')));
+  const B = L.builds.map((_, i) => lifeBuildQ(sid, i));
+  shuffle(L.replies.map((_, i) => lifeReplyQ(sid, i))).forEach((r, k) => { qs.push(r); if (k % 2 === 1 && B.length) qs.push(B.shift()); });
+  qs.push(...B);
+  return { type: 'life', sid, title: `${STOPS[sid].city} · ${L.title}`, questions: qs.filter(Boolean) };
 }
 function lessonGuided(sid) {
   const st = STOPS[sid];
@@ -372,6 +416,7 @@ function completeLesson(lesson, st) {
   const out = { stars, acc, xp: 0, newStamp: false, levelUp: null, passed: null, prevStars: 0, newFacts: [] };
   const fsid = lesson.sid && FACTS[lesson.sid] ? lesson.sid : null;
   const factsBefore = fsid ? factsUnlocked(S(), fsid) : 0;
+  const lifeBefore = fsid && LIFE_FACTS[fsid] ? lifeFactOpen(S(), fsid) : true;
   update(s => {
     s.stats.answers += st.total; s.stats.correct += st.correctFirst;
     s.stats.bestCombo = Math.max(s.stats.bestCombo, st.bestCombo);
@@ -387,6 +432,12 @@ function completeLesson(lesson, st) {
       s.lessons[key] = Math.max(out.prevStars, stars);
       if (lesson.type === 'guided') { s.stats.talks += 1; bonus = 25; }
     }
+    if (lesson.type === 'life') {
+      const key = lesson.sid + ':life';
+      out.prevStars = s.lessons[key] || 0;
+      s.lessons[key] = Math.max(out.prevStars, stars);
+      bonus = 20;
+    }
     if (lesson.type === 'checkpoint') {
       s.cpTried[lesson.levelId] = true;
       out.passed = st.correctFirst >= lesson.pass;
@@ -401,6 +452,7 @@ function completeLesson(lesson, st) {
     out.xp = st.xp + bonus;
     awardXP(s, out.xp);
     if (fsid) for (let i = factsBefore; i < factsUnlocked(s, fsid); i++) out.newFacts.push(i);
+    if (fsid && !lifeBefore && lifeFactOpen(s, fsid)) out.newLifeFact = true;
   });
   return out;
 }

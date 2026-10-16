@@ -10,15 +10,6 @@ function Avatar({ p, s = 36 }) {
     : GLYPHS[p.avatar] ? html`<${Glyph} n=${p.avatar} s=${Math.round(s * 0.58)} />` : html`<${BeeLogo} s=${Math.round(s * 0.82)} />`;
   return html`<span class="avatar" style=${`width:${s}px;height:${s}px;background:${bg};color:${fg}`} aria-hidden="true">${inner}</span>`;
 }
-function ProfileButton({ s }) {
-  const a = ACCT.use();
-  if (a.status === 'off') return null;
-  const label = a.status === 'ready' ? `Your profile: ${s.profile.name || a.user.email}` : a.status === 'unverified' ? 'Your profile: confirm your email' : 'Create a profile or sign in';
-  return html`<button class="iconbtn plain profbtn" onClick=${() => NAV.go({ name: 'account' })} aria-label=${label} title=${label}>
-    ${a.status === 'ready' ? html`<${Avatar} p=${s.profile} s=${32} />` : html`<${Icon} n="user" />`}
-    ${a.status === 'unverified' ? html`<span class="dot" aria-hidden="true"></span>` : null}
-  </button>`;
-}
 function OnboardSignIn() {
   const a = ACCT.use();
   if (!['guest', 'unverified', 'loading'].includes(a.status)) return null;
@@ -225,18 +216,21 @@ function ProfileView() {
         <div class="row"><button type="button" class="btn ghost" onClick=${() => setAsk(null)}>Cancel</button><button type="submit" class="btn bad" disabled=${D.busy || pw.length < 6}>${D.busy ? 'Deleting…' : 'Delete'}</button></div>
       </form></div>` : null}`;
 }
+function AccountSection({ mode }) {
+  const a = ACCT.use();
+  if (a.status === 'ready') return html`<${ProfileView} />`;
+  if (a.status === 'unverified') return html`<${VerifyEmail} />`;
+  if (a.status === 'guest') return html`<${AuthForms} initial=${mode} />`;
+  if (a.status === 'unavailable') return html`<section class="card"><${Notice} kind="err">Can't reach the sign-in service right now. Your progress is saved on this device.<//><button class="btn primary wide" style="margin-top:14px" onClick=${initAccount}>Try again</button></section>`;
+  if (a.status === 'off') return null;
+  return html`<div class="loadingbox"><div class="spinner"></div><b>Connecting…</b></div>`;
+}
 function AccountPage({ go, mode }) {
   const a = ACCT.use();
   const back = () => go({ name: S().onboarded ? 'home' : 'onboard' });
-  let body;
-  if (a.status === 'ready') body = html`<${ProfileView} />`;
-  else if (a.status === 'unverified') body = html`<${VerifyEmail} />`;
-  else if (a.status === 'guest') body = html`<${AuthForms} initial=${mode} />`;
-  else if (a.status === 'unavailable') body = html`<section class="card"><${Notice} kind="err">Can't reach the sign-in service right now. Your progress is saved on this device.<//><button class="btn primary wide" style="margin-top:14px" onClick=${initAccount}>Try again</button></section>`;
-  else if (a.status === 'off') body = html`<section class="card"><p>Profiles aren't available in this version of Surra. Your progress is saved on this device.</p></section>`;
-  else body = html`<div class="loadingbox"><div class="spinner"></div><b>Connecting…</b></div>`;
+  useBack(back);
   return html`<div class="wrap" style="max-width:680px">
     <div class="page-head"><button class="iconbtn" onClick=${back} aria-label="Back"><${Icon} n="arrowL" /></button><h1>${a.status === 'ready' ? 'Your profile' : a.status === 'unverified' ? 'Almost there' : 'Profile'}</h1></div>
-    ${body}
+    ${a.status === 'off' ? html`<section class="card"><p>Profiles aren't available in this version of Surra. Your progress is saved on this device.</p></section>` : html`<${AccountSection} mode=${mode} />`}
   </div>`;
 }

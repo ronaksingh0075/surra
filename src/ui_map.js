@@ -1,0 +1,295 @@
+/* ================= Surra map: zoomable road map with fact signposts =================
+   Pinch, drag, scroll or use the buttons to zoom. Roads follow the journey with real road numbers;
+   zoom in and each city grows a fingerpost whose boards are its "Did you know?" facts. */
+const ROADS = {
+  'malmo-ystad': ['E65', 'e'], 'lund-helsingborg': ['E6', 'e'], 'helsingborg-goteborg': ['E6', 'e'], 'goteborg-jonkoping': ['40', 'r'],
+  'jonkoping-linkoping': ['E4', 'e'], 'linkoping-norrkoping': ['E4', 'e'], 'norrkoping-orebro': ['51', 'r'], 'orebro-vasteras': ['E18', 'e'],
+  'uppsala-stockholm': ['E4', 'e'], 'stockholm-gavle': ['E4', 'e'], 'gavle-sundsvall': ['E4', 'e'], 'sundsvall-ostersund': ['E14', 'e'],
+  'umea-lulea': ['E4', 'e'], 'lulea-jokkmokk': ['97', 'r'], 'jokkmokk-gallivare': ['E45', 'e'], 'gallivare-kiruna': ['E10', 'e'],
+};
+const bez = (a, b, c, d, t) => { const m = 1 - t; return [0, 1].map(j => m * m * m * a[j] + 3 * m * m * t * b[j] + 3 * m * t * t * c[j] + t * t * t * d[j]); };
+const GEO = (() => {
+  const P = MAP.cities, pts = ORDER.map(sid => P[sid]), seg = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    const f = n => n.toFixed(1);
+    seg.push({ a: ORDER[i], b: ORDER[i + 1], d: `M${f(p1[0])} ${f(p1[1])}C${f(c1[0])} ${f(c1[1])} ${f(c2[0])} ${f(c2[1])} ${f(p2[0])} ${f(p2[1])}`, mid: bez(p1, c1, c2, p2, 0.5), len: Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) });
+  }
+  return { seg, full: seg.map((x, i) => (i ? x.d.replace(/^M[^C]+/, '') : x.d)).join('') };
+})();
+const MAPMEM = { v: null, tapped: (() => { try { return localStorage.getItem('surra.maptip') === '1'; } catch (e) { return false; } })() };
+function mapTipDone() { MAPMEM.tapped = true; try { localStorage.setItem('surra.maptip', '1'); } catch (e) { /* private mode */ } }
+const KMAX = 14;
+const CITY_BOX = (() => { const xs = ORDER.map(sid => MAP.cities[sid][0]), ys = ORDER.map(sid => MAP.cities[sid][1]); return [Math.min(...xs) - 24, Math.min(...ys) - 24, Math.max(...xs) + 24, Math.max(...ys) + 24]; })();
+
+function GIcon({ n, x = 0, y = 0, s = 12, w = 2.4 }) {
+  const d = ICONS[n] || ICONS.star; const ps = Array.isArray(d) ? d : [d];
+  return html`<g transform=${`translate(${x} ${y}) scale(${s / 24})`} fill="none" stroke="currentColor" stroke-width=${w} stroke-linecap="round" stroke-linejoin="round">${ps.map(p => html`<path d=${p} />`)}</g>`;
+}
+function factItems(s, sid) {
+  const items = FACTS[sid].map((f, i) => ({ f, i, open: i < factsUnlocked(s, sid) }));
+  if (lifeOn(s) && LIFE_FACTS[sid]) items.push({ f: LIFE_FACTS[sid], i: 'life', open: lifeFactOpen(s, sid) });
+  return items;
+}
+function Fingerpost({ s, sid, x, y, u, lift = 0, onFact, tap }) {
+  const items = factItems(s, sid), gap = 19, H = 12 + items.length * gap;
+  return html`<g class="post" transform=${`translate(${x} ${y}) scale(${u}) translate(0 ${-lift})`}>
+    <line class="post-pole" x1="0" y1="-8" x2="0" y2=${-H - 10} />
+    ${items.map((it, n) => {
+      const left = n % 2 === 1, yy = -H - 4 + n * gap, th = FACT_THEMES[it.f.t];
+      const d = left ? 'M-1 0H-35L-41 7.5L-35 15H-1Z' : 'M1 0H35L41 7.5L35 15H1Z';
+      const label = `${STOPS[sid].city}, ${th.en}: ${it.open ? it.f.h : 'locked'}`;
+      const act = () => onFact && onFact({ sid, i: it.i });
+      return html`<g class=${cx('board', 'b-' + it.f.t, !it.open && 'locked')} transform=${`translate(0 ${yy})`} role=${onFact ? 'button' : null} tabindex=${onFact ? 0 : null} aria-label=${label}
+        onClick=${onFact ? tap(act) : null} onKeyDown=${onFact ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(); } }) : null}>
+        <path d=${d} />
+        <${GIcon} n=${it.open ? th.icon : 'lock'} x=${left ? -27 : 13} y="1.5" s="12" />
+      </g>`;
+    })}
+  </g>`;
+}
+
+/* Decide what fits on screen: the bee first, then signposts nearest the middle, then city names, then road shields.
+   Anything that would overlap something already placed waits until you zoom in further. */
+function mapLayout({ s, k, sc, vb, w, h, cur, interactive, pillW, pillLeft }) {
+  const out = { posts: [], labels: {}, shields: [] };
+  if (!interactive || !w) return out;
+  const P = MAP.cities, pos = {};
+  ORDER.forEach(sid => { pos[sid] = [(P[sid][0] - vb[0]) * sc, (P[sid][1] - vb[1]) * sc]; });
+  const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+  const dots = ORDER.map(sid => [sid, [pos[sid][0] - 7, pos[sid][1] - 7, pos[sid][0] + 7, pos[sid][1] + 7]]);
+  const [yx, yy] = pos[cur];
+  const taken = [pillLeft ? [yx - 18 - pillW, yy - 23, yx + 12, yy + 8] : [yx - 12, yy - 23, yx + 18 + pillW, yy + 8], [w - 62, 6, w, 218]];
+  const free = (b, own) => !taken.some(o => hit(o, b)) && !dots.some(([sid, d]) => sid !== own && hit(d, b));
+  const seen = sid => pos[sid][0] > -60 && pos[sid][0] < w + 60 && pos[sid][1] > -30 && pos[sid][1] < h + 160;
+  const mid = sid => Math.hypot(pos[sid][0] - w / 2, pos[sid][1] - h / 2);
+  const order = ORDER.filter(seen).sort((a, b) => (b === cur) - (a === cur) || mid(a) - mid(b));
+  if (k >= 2.2) order.forEach(sid => {
+    const lift = sid === cur ? 22 : 0, H = 12 + factItems(s, sid).length * 19, [x, y] = pos[sid];
+    const b = [x - 44, y - H - 14 - lift, x + 44, y - 17 - lift];
+    if (free(b, sid)) { out.posts.push(sid); taken.push(b); }
+  });
+  if (k >= 1.6) order.forEach(sid => {
+    if (sid === cur) return;
+    const [x, y] = pos[sid], tw = STOPS[sid].city.length * 7.6 + 4;
+    const r = [x + 7, y - 10, x + 9 + tw, y + 8], l = [x - 9 - tw, y - 10, x - 7, y + 8];
+    if (free(r, sid)) { out.labels[sid] = 'r'; taken.push(r); } else if (free(l, sid)) { out.labels[sid] = 'l'; taken.push(l); }
+  });
+  if (k >= 1.5) GEO.seg.forEach(x => {
+    const road = ROADS[x.a + '-' + x.b]; if (!road || x.len * sc < 56) return;
+    const sw = 9 + road[0].length * 7.2, mx = (x.mid[0] - vb[0]) * sc, my = (x.mid[1] - vb[1]) * sc;
+    if (mx < -40 || mx > w + 40 || my < -20 || my > h + 20) return;
+    const b = [mx - sw / 2 - 3, my - 11, mx + sw / 2 + 3, my + 11];
+    if (free(b, null)) { out.shields.push({ x, num: road[0], kind: road[1], sw }); taken.push(b); }
+  });
+  return out;
+}
+
+function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact }) {
+  const M = MAP, P = M.cities;
+  const box = useRef(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const cur = currentStop(s);
+  const start = () => (interactive && MAPMEM.v) || (focus ? { k: focus.k, cx: P[focus.sid || cur][0], cy: P[focus.sid || cur][1] } : { k: 1, cx: M.W / 2, cy: M.H / 2 });
+  const [v, setV] = useState(start);
+  const vRef = useRef(v); vRef.current = v;
+  const base = size.w && size.h ? Math.min(size.w / M.W, size.h / M.H) : 1;
+  // keep the map framed when zoomed out; once zoomed in, any city can sit in the middle of the screen
+  const clamp = n => {
+    if (!size.w) return n;
+    const k = Math.min(KMAX, Math.max(1, n.k)), sc = base * k, pad = 14, f = Math.min(1, (k - 1) / 1.5);
+    const axis = (c, view, len, lo0, hi0) => {
+      if (view >= len + 2 * pad) return len / 2;
+      const lo = view / 2 - pad, hi = len + pad - view / 2;
+      return Math.min(Math.max(hi, hi + (hi0 - hi) * f), Math.max(Math.min(lo, lo + (lo0 - lo) * f), c));
+    };
+    return { k, cx: axis(n.cx, size.w / sc, M.W, CITY_BOX[0], CITY_BOX[2]), cy: axis(n.cy, size.h / sc, M.H, CITY_BOX[1], CITY_BOX[3]) };
+  };
+  useEffect(() => {
+    const el = box.current; if (!el) return;
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    if (!window.ResizeObserver) { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }
+    const ro = new ResizeObserver(measure); ro.observe(el); return () => ro.disconnect();
+  }, []);
+  useEffect(() => { if (size.w) setV(x => clamp(x)); }, [size.w, size.h]);
+  useEffect(() => { if (interactive) MAPMEM.v = v; }, [v]);
+  // gestures
+  const ptrs = useRef(new Map()), g = useRef(null), moved = useRef(0), pend = useRef(null), raf = useRef(0), anim = useRef(0);
+  const rel = e => { const r = box.current.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const toMap = (px, py, vv) => { const sc = base * vv.k; return [vv.cx + (px - size.w / 2) / sc, vv.cy + (py - size.h / 2) / sc]; };
+  const schedule = nv => {
+    pend.current = clamp(nv);
+    if (!raf.current) raf.current = requestAnimationFrame(() => { raf.current = 0; if (pend.current) setV(pend.current); pend.current = null; });
+  };
+  const animateTo = target => {
+    cancelAnimationFrame(anim.current);
+    const from = vRef.current, to = clamp(target), t0 = performance.now(), dur = 280;
+    const step = now => {
+      const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 3);
+      setV({ k: from.k * Math.pow(to.k / from.k, e), cx: from.cx + (to.cx - from.cx) * e, cy: from.cy + (to.cy - from.cy) * e });
+      if (t < 1) anim.current = requestAnimationFrame(step);
+    };
+    anim.current = requestAnimationFrame(step);
+  };
+  const zoomAt = (px, py, k2, smooth) => {
+    const vv = vRef.current, [mx, my] = toMap(px, py, vv), k = Math.min(KMAX, Math.max(1, k2)), sc = base * k;
+    const target = { k, cx: mx - (px - size.w / 2) / sc, cy: my - (py - size.h / 2) / sc };
+    if (smooth) animateTo(target); else schedule(target);
+  };
+  const zoomRef = useRef(zoomAt); zoomRef.current = zoomAt;
+  useEffect(() => {
+    if (!interactive) return;
+    const el = box.current;
+    const onWheel = e => { e.preventDefault(); const [x, y] = rel(e); zoomRef.current(x, y, vRef.current.k * Math.exp(-e.deltaY * 0.0018)); };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+  const onDown = e => {
+    if (!interactive) return;
+    cancelAnimationFrame(anim.current);
+    const p = rel(e); ptrs.current.set(e.pointerId, p);
+    if (ptrs.current.size === 1) { moved.current = 0; g.current = { t: 'pan', x0: p[0], y0: p[1], v0: vRef.current, cap: false }; }
+    else if (ptrs.current.size === 2) {
+      const [a, b] = [...ptrs.current.values()], mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      g.current = { t: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, v0: vRef.current, anchor: toMap(mid[0], mid[1], vRef.current) };
+      moved.current = 99;
+      try { box.current.setPointerCapture(e.pointerId); } catch (er) { /* fine */ }
+    }
+  };
+  const onMove = e => {
+    if (!interactive || !ptrs.current.has(e.pointerId)) return;
+    const p = rel(e); ptrs.current.set(e.pointerId, p);
+    const G = g.current; if (!G) return;
+    if (G.t === 'pan') {
+      const dx = p[0] - G.x0, dy = p[1] - G.y0;
+      moved.current = Math.max(moved.current, Math.hypot(dx, dy));
+      if (moved.current < 6) return;
+      if (!G.cap) { try { box.current.setPointerCapture(e.pointerId); } catch (er) { /* fine */ } G.cap = true; }
+      const sc = base * G.v0.k;
+      schedule({ k: G.v0.k, cx: G.v0.cx - dx / sc, cy: G.v0.cy - dy / sc });
+    } else if (ptrs.current.size >= 2) {
+      const [a, b] = [...ptrs.current.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]), mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const k = Math.min(KMAX, Math.max(1, G.v0.k * d / G.d0)), sc = base * k;
+      schedule({ k, cx: G.anchor[0] - (mid[0] - size.w / 2) / sc, cy: G.anchor[1] - (mid[1] - size.h / 2) / sc });
+    }
+  };
+  const onUp = e => {
+    ptrs.current.delete(e.pointerId);
+    if (ptrs.current.size === 1) { const p = [...ptrs.current.values()][0]; g.current = { t: 'pan', x0: p[0], y0: p[1], v0: vRef.current, cap: true }; }
+    else if (!ptrs.current.size) g.current = null;
+  };
+  const tap = fn => e => { e.stopPropagation(); if (moved.current > 6) return; fn(); };
+  const keyAct = fn => e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
+  const onKey = e => {
+    if (!interactive || e.target !== box.current) return;
+    const vv = vRef.current, step = 60 / (base * vv.k);
+    const acts = { '+': () => animateTo({ ...vv, k: vv.k * 1.6 }), '=': () => animateTo({ ...vv, k: vv.k * 1.6 }), '-': () => animateTo({ ...vv, k: vv.k / 1.6 }),
+      ArrowLeft: () => animateTo({ ...vv, cx: vv.cx - step }), ArrowRight: () => animateTo({ ...vv, cx: vv.cx + step }), ArrowUp: () => animateTo({ ...vv, cy: vv.cy - step }), ArrowDown: () => animateTo({ ...vv, cy: vv.cy + step }) };
+    if (acts[e.key]) { e.preventDefault(); acts[e.key](); }
+  };
+
+  // drawing
+  const k = v.k, sc = base * k, u = 1 / sc;
+  const vb = size.w ? [v.cx - size.w / (2 * sc), v.cy - size.h / (2 * sc), size.w / sc, size.h / sc] : [0, 0, M.W, M.H];
+  const lit = sid => stopDone(s, sid) || LEVEL_INDEX[sid] < startIdx(s) || !!s.checkpoints[STOPS[sid].level];
+  const trip = GEO.seg.filter(x => lit(x.a) && (lit(x.b) || x.b === cur)).map(x => x.d).join('');
+  const roadW = 3.4 + Math.min(k, 8) * 0.55;
+  const discOp = k < 1.25 ? 1 : k < 1.75 ? (1.75 - k) / 0.5 : 0;
+  const [bx, by] = P[cur], curName = STOPS[cur].city, pillW = 18 + curName.length * 6.8;
+  const pillLeft = (bx - vb[0]) * sc + 16 + pillW > size.w;
+  const lay = mapLayout({ s, k, sc, vb, w: size.w, h: size.h, cur, interactive, pillW, pillLeft });
+  const nonScale = 'non-scaling-stroke';
+  return html`<div class=${cx('mapzoom', interactive && 'live')} ref=${box} tabindex=${interactive ? 0 : null}
+      aria-label=${interactive ? 'Journey map. Drag to move, pinch or use the buttons to zoom.' : null}
+      onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${onUp} onKeyDown=${onKey}
+      onDblClick=${interactive ? (e => { const p = rel(e); zoomAt(p[0], p[1], vRef.current.k * 2, true); }) : null}>
+    <svg class="map" viewBox=${vb.join(' ')} preserveAspectRatio="xMidYMid meet" role="group" aria-label="Map of Sweden with your route from Malmö to Kiruna">
+      <defs>
+        <radialGradient id="auA" cx="50%" cy="50%" r="50%"><stop offset="0" style="stop-color:var(--aurora-a);stop-opacity:.75" /><stop offset="1" style="stop-color:var(--aurora-a);stop-opacity:0" /></radialGradient>
+        <radialGradient id="auB" cx="50%" cy="50%" r="50%"><stop offset="0" style="stop-color:var(--aurora-b);stop-opacity:.6" /><stop offset="1" style="stop-color:var(--aurora-b);stop-opacity:0" /></radialGradient>
+      </defs>
+      <rect class="m-sea" x="-3000" y="-3000" width="6400" height="7000" />
+      ${M.neighbours.map(p => html`<polygon class="m-nb" points=${p} vector-effect=${nonScale} />`)}
+      ${M.sweden.map(p => html`<polygon class="m-land" points=${p} vector-effect=${nonScale} />`)}
+      ${M.lakes.map(p => html`<polygon class="m-lake" points=${p} vector-effect=${nonScale} />`)}
+      <g class="aurora" aria-hidden="true">
+        <ellipse cx="300" cy="120" rx="150" ry="60" fill="url(#auA)" transform="rotate(-18 300 120)" />
+        <ellipse cx="210" cy="70" rx="140" ry="44" fill="url(#auB)" transform="rotate(-10 210 70)" />
+      </g>
+      <g class="roads" aria-hidden="true">
+        <path class="road-edge" d=${GEO.full} stroke-width=${roadW + 2.8} vector-effect=${nonScale} />
+        <path class="road" d=${GEO.full} stroke-width=${roadW} vector-effect=${nonScale} />
+        <path class="road-line" d=${GEO.full} stroke-width="1.1" stroke-dasharray="5 6" vector-effect=${nonScale} />
+        ${trip ? html`<path class="trip-glow" d=${trip} stroke-width=${roadW + 11} vector-effect=${nonScale} />
+          <path class="trip-edge" d=${trip} stroke-width=${roadW + 2.8} vector-effect=${nonScale} />
+          <path class="trip" d=${trip} stroke-width=${roadW} vector-effect=${nonScale} />
+          <path class="trip-line" d=${trip} stroke-width="1.2" stroke-dasharray="5 6" vector-effect=${nonScale} />` : null}
+      </g>
+      ${lay.shields.map(({ x, num, kind, sw }) => html`<g class=${cx('shield', kind)} transform=${`translate(${x.mid[0]} ${x.mid[1]}) scale(${u})`} aria-hidden="true"><rect x=${-sw / 2} y="-8.5" width=${sw} height="17" rx="3.5" /><text y="1">${num}</text></g>`)}
+      ${ORDER.map(sid => {
+        const done = stopDone(s, sid), open = stopOpen(s, sid), [x, y] = P[sid];
+        return html`<g class=${cx('m-stop', done ? 'done' : open ? 'open' : 'locked')} role=${interactive ? 'button' : null} tabindex=${interactive && k >= 1.6 ? 0 : null}
+            aria-label=${interactive ? `${STOPS[sid].city}${done ? ', stamped' : open ? '' : ', locked'}` : null}
+            onClick=${interactive && onStop ? tap(() => onStop(sid)) : null} onKeyDown=${interactive && onStop ? keyAct(() => onStop(sid)) : null}>
+          <circle class="hit" cx=${x} cy=${y} r=${15 * u} />
+          <circle class="dot" cx=${x} cy=${y} r=${(done ? 6 : 5) * u} stroke-width=${(done ? 2.4 : 2) * u} />
+          ${lay.labels[sid] ? html`<text class="m-name" x=${x + (lay.labels[sid] === 'r' ? 9 : -9) * u} y=${y + 4.2 * u} text-anchor=${lay.labels[sid] === 'r' ? 'start' : 'end'} font-size=${12.5 * u} stroke-width=${3.4 * u}>${STOPS[sid].city}</text>` : null}
+        </g>`;
+      })}
+      ${lay.posts.map(sid => html`<${Fingerpost} s=${s} sid=${sid} x=${P[sid][0]} y=${P[sid][1]} u=${u} lift=${sid === cur ? 22 : 0} onFact=${onFact ? (f => { mapTipDone(); onFact(f); }) : null} tap=${tap} />`)}
+      ${discOp > 0 ? LEVELS.map((L, li) => {
+        const st = levelState(s, li), [mx, my] = L.marker;
+        const cxm = L.stops.reduce((a, sid) => a + P[sid][0], 0) / 4, cym = L.stops.reduce((a, sid) => a + P[sid][1], 0) / 4;
+        const done = L.stops.filter(sid => stopDone(s, sid)).length;
+        const act = () => onRegion && onRegion(li);
+        const right = L.lab === 'right', ks = 1 / k;
+        return html`<g class=${cx('m-region', st)} style=${`opacity:${discOp}`} pointer-events=${discOp < 0.4 ? 'none' : null}
+            role=${interactive ? 'button' : null} tabindex=${interactive ? 0 : null}
+            aria-label=${`${L.id} ${L.region}: ${st === 'locked' ? 'locked' : st === 'passed' ? 'checkpoint passed' : `${done} of 4 stops done`}`}
+            onClick=${interactive ? tap(act) : null} onKeyDown=${interactive ? keyAct(act) : null}>
+          <line class="m-lead" x1=${mx} y1=${my} x2=${cxm} y2=${cym} vector-effect=${nonScale} />
+          <g transform=${`translate(${mx} ${my}) scale(${ks})`}>
+            <circle class="halo" r="27" /><circle r="28" fill="transparent" /><circle class="disc" r="19" />
+            <text class="code" y="1">${L.id}</text>
+            <text class="lbl" x=${right ? 25 : 0} y=${right ? -1 : 35} text-anchor=${right ? 'start' : 'middle'}>${L.region}</text>
+            <text class="sub" x=${right ? 25 : 0} y=${right ? 12 : 48} text-anchor=${right ? 'start' : 'middle'}>${st === 'locked' ? 'Locked' : st === 'passed' ? 'Passed' : `${done}/4 stops`}</text>
+          </g>
+        </g>`;
+      }) : null}
+      <g class="m-you" transform=${`translate(${bx} ${by}) scale(${u})`} role=${interactive ? 'button' : null} tabindex=${interactive ? 0 : null}
+          aria-label=${`You are here: ${curName}`} onClick=${interactive && onStop ? tap(() => onStop(cur)) : null} onKeyDown=${interactive && onStop ? keyAct(() => onStop(cur)) : null}>
+        ${size.w >= 160 ? html`<rect class="m-herebg" x=${pillLeft ? -16 - pillW : 16} y="-20" width=${pillW} height="20" rx="10" />
+        <text class="m-here" x=${pillLeft ? -16 - pillW / 2 : 16 + pillW / 2} y="-6" text-anchor="middle">${curName}</text>` : null}
+        <g class="bee" transform="translate(0 -4) scale(1.15)"><${BeeShape} /></g>
+      </g>
+    </svg>
+    ${interactive ? html`<div class="mapctl" role="group" aria-label="Map controls">
+        <button class="mapbtn" onClick=${() => animateTo({ ...vRef.current, k: vRef.current.k * 1.8 })} aria-label="Zoom in" title="Zoom in"><${Icon} n="plus" s=${20} /></button>
+        <button class="mapbtn" onClick=${() => animateTo({ ...vRef.current, k: vRef.current.k / 1.8 })} aria-label="Zoom out" title="Zoom out"><${Icon} n="minus" s=${20} /></button>
+        <button class="mapbtn" onClick=${() => animateTo({ k: Math.max(3.4, vRef.current.k), cx: bx, cy: by })} aria-label="Go to where you are" title="Where am I?"><${Icon} n="locate" s=${20} /></button>
+        <button class="mapbtn" onClick=${() => animateTo({ k: 1, cx: M.W / 2, cy: M.H / 2 })} aria-label="Show all of Sweden" title="All of Sweden"><${Icon} n="fit" s=${20} /></button>
+      </div>
+      ${!MAPMEM.tapped ? html`<div class="maphint" aria-live="polite"><${Icon} n="sign" s=${16} />${lay.posts.length ? 'Tap a signpost to read a fact' : 'Zoom in to find the fact signposts'}</div>` : null}` : null}
+  </div>`;
+}
+
+function FactSheet({ s, sid, i, onClose, openStop }) {
+  const life = i === 'life', f = life ? LIFE_FACTS[sid] : FACTS[sid][i];
+  const open = life ? lifeFactOpen(s, sid) : i < factsUnlocked(s, sid), th = FACT_THEMES[f.t];
+  return html`<${Sheet} onClose=${onClose} label=${`${STOPS[sid].city} signpost`}>
+    <div class="sheet-head">
+      <span class=${cx('signbadge', 'b-' + f.t, !open && 'locked')}><${Icon} n=${open ? th.icon : 'lock'} s=${22} /></span>
+      <div style="min-width:0"><div class="eyebrow">Signpost · ${STOPS[sid].city}</div><h2>${open ? 'Did you know?' : 'Not yet unlocked'}</h2></div>
+      <button class="iconbtn close" onClick=${onClose} aria-label="Close"><${Icon} n="close" /></button>
+    </div>
+    <div class="section">${open ? html`<${FactCard} sid=${sid} fact=${f} city=${false} />`
+      : html`<div class=${cx('fact', 'teaser', 'f-' + f.t)}>
+          <div class="fact-top"><span class="fact-th"><${Icon} n=${th.icon} s=${15} />${th.en}</span></div>
+          <h3>${f.h}</h3>
+          <p class="lockline"><${Icon} n="lock" s=${15} />${life ? 'Finish any lesson here to read it' : factHint(i)}</p>
+        </div>`}</div>
+    <button class="btn ghost wide" style="margin-top:14px" onClick=${() => openStop(sid)}>Open ${STOPS[sid].city}<${Icon} n="arrowR" s=${18} /></button>
+  <//>`;
+}

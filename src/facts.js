@@ -5,6 +5,7 @@ const FACT_THEMES = {
   culture: { en: 'Culture & food', icon: 'cup' },
   nature: { en: 'Nature & geography', icon: 'pine' },
   language: { en: 'Language', icon: 'aring' },
+  science: { en: 'Life science', icon: 'flask' },
 };
 const FACTS = {
   malmo: [
