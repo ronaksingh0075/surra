@@ -15,22 +15,6 @@ function OnboardSignIn() {
   if (!['guest', 'unverified', 'loading'].includes(a.status)) return null;
   return html`<p class="muted" style="font-size:15px">Already have a profile? <button class="linkbtn" onClick=${() => NAV.go({ name: 'account', mode: 'signin' })}>Sign in</button></p>`;
 }
-function AccountNudge({ s }) {
-  const a = ACCT.use();
-  if (a.status === 'unverified') {
-    return html`<section class="card nudge" aria-label="Confirm your email">
-      <span class="nudge-i"><${Icon} n="mail" /></span>
-      <div class="tx"><b>Confirm your email to start backing up</b><span>We sent a link to ${a.user.email}.</span></div>
-      <button class="btn small" onClick=${() => NAV.go({ name: 'account' })}>Open</button>
-    </section>`;
-  }
-  if (a.status !== 'guest' || !s.settings.nudge || !Object.keys(s.lessons).length) return null;
-  return html`<section class="card nudge" aria-label="Save your progress">
-    <span class="nudge-i"><${Icon} n="cloud" /></span>
-    <div class="tx"><b>Keep your journey safe</b><span>Create a free profile to back up your progress and carry on from any device.</span></div>
-    <div class="nudge-acts"><button class="btn small primary" onClick=${() => NAV.go({ name: 'account' })}>Create profile</button><button class="linkbtn" onClick=${() => update(x => { x.settings.nudge = false; })}>Not now</button></div>
-  </section>`;
-}
 function AccountRow() {
   const a = ACCT.use();
   if (a.status === 'off') return null;

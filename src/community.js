@@ -77,19 +77,26 @@ async function purgeCommunity(uid) { // account deletion: remove the map entry a
   setComm({ players: [], challenges: [] });
 }
 
-/* ---------- reading the map */
+/* ---------- reading the map
+   The notifier keeps a roster of everyone on the map in shared/roster (one read instead of one per player); on top
+   of it we fetch only the entries that changed since it was written. Without a fresh roster, read the map directly. */
+const ROSTER_FRESH = 3 * 3600e3;
 async function refreshPlayers() {
   if (!commReady()) return;
   setComm({ loading: true, error: null });
   try {
-    const F = acct.F, snap = await F.getDocs(F.query(F.collection(acct.db, 'players'), F.limit(400)));
-    const cutoff = Date.now() - DUEL.staleMs, players = [];
-    snap.forEach(d => {
-      const x = d.data(), seen = tsMs(x.updatedAt);
-      if (!ORDER.includes(x.stop) || (seen && seen < cutoff)) return;
-      players.push({ uid: d.id, name: String(x.name || 'Traveller'), avatar: x.avatar || 'bee', color: x.color || 'fjord', stop: x.stop, xp: Number(x.xp) || 0, seen });
-    });
-    setComm({ players, playersAt: Date.now(), loading: false });
+    const F = acct.F, col = F.collection(acct.db, 'players'), cutoff = Date.now() - DUEL.staleMs, byUid = new Map();
+    const add = (uid, x, seen) => {
+      if (!ORDER.includes(x.stop) || (seen && seen < cutoff)) { byUid.delete(uid); return; }
+      byUid.set(uid, { uid, name: String(x.name || 'Traveller'), avatar: x.avatar || 'bee', color: x.color || 'fjord', stop: x.stop, xp: Number(x.xp) || 0, seen });
+    };
+    let roster = null;
+    try { const r = await F.getDoc(F.doc(acct.db, 'shared', 'roster')); roster = r.exists() ? r.data() : null; } catch (e) { roster = null; }
+    const fresh = roster && Array.isArray(roster.list) && Number(roster.at) > Date.now() - ROSTER_FRESH;
+    if (fresh) roster.list.forEach(r => { if (r && r.u) add(r.u, { name: r.n, avatar: r.a, color: r.c, stop: r.s, xp: r.x }, Number(r.t) || 0); });
+    const snap = await F.getDocs(fresh ? F.query(col, F.where('updatedAt', '>', new Date(Number(roster.at) - 120e3)), F.limit(300)) : F.query(col, F.limit(400)));
+    snap.forEach(d => { const x = d.data(); add(d.id, x, tsMs(x.updatedAt)); });
+    setComm({ players: [...byUid.values()], playersAt: Date.now(), loading: false });
   } catch (e) { setComm({ loading: false, error: errCode(e) || 'error' }); }
 }
 /* the list the map draws: your own entry always shows where you are right now */
@@ -128,8 +135,8 @@ async function refreshChallenges(force) {
   const F = acct.F, uid = meUid(), col = F.collection(acct.db, 'challenges');
   try {
     const [a, b] = await Promise.all([
-      F.getDocs(F.query(col, F.where('to', '==', uid), F.limit(40))),
-      F.getDocs(F.query(col, F.where('from', '==', uid), F.limit(40))),
+      F.getDocs(F.query(col, F.where('to', '==', uid), F.limit(20))),
+      F.getDocs(F.query(col, F.where('from', '==', uid), F.limit(20))),
     ]);
     const list = [];
     a.forEach(d => list.push(normalize(d.id, d.data())));
@@ -185,18 +192,20 @@ function duelKeys(stopA, stopB) {
 }
 function duelQuestion(key) { const m = /^([a-z]+):r(\d+)$/.exec(key); return m && STOPS[m[1]] ? replyQ(m[1], Number(m[2])) : null; }
 async function sendChallenge(target, qs, score, ms) {
-  const s = S(), uid = meUid(), rec = myRecord(s), F = acct.F;
-  await F.setDoc(F.doc(acct.db, 'challenges', challengeId(uid)), {
+  const s = S(), uid = meUid(), rec = myRecord(s), F = acct.F, id = challengeId(uid);
+  await F.setDoc(F.doc(acct.db, 'challenges', id), {
     from: uid, to: target.uid, fromName: rec.name, fromAvatar: rec.avatar, fromColor: rec.color, fromStop: rec.stop,
     toName: String(target.name).slice(0, 24), toAvatar: String(target.avatar).slice(0, 16), toColor: String(target.color).slice(0, 16), toStop: target.stop,
     qs, fromScore: score, fromMs: Math.round(ms), status: 'pending', created: F.serverTimestamp(), v: 1,
   });
+  pingNotifier('new', id);
   update(st => { awardXP(st, score * DUEL.perRight); });
   refreshChallenges(true);
 }
 async function answerChallenge(c, score, ms) {
   const F = acct.F;
   await F.updateDoc(F.doc(acct.db, 'challenges', c.id), { status: 'done', toScore: score, toMs: Math.round(ms), resolvedAt: F.serverTimestamp() });
+  pingNotifier('res', c.id);
   const settled = { ...c, status: 'done', toScore: score, toMs: Math.round(ms), resolvedAt: Date.now() };
   update(st => { awardXP(st, score * DUEL.perRight); });
   applyResults([settled], false);
@@ -206,6 +215,7 @@ async function answerChallenge(c, score, ms) {
 async function declineChallenge(c) {
   const F = acct.F;
   await F.updateDoc(F.doc(acct.db, 'challenges', c.id), { status: 'declined', resolvedAt: F.serverTimestamp() });
+  pingNotifier('res', c.id);
   setComm({ challenges: COMM.get().challenges.map(x => (x.id === c.id ? { ...x, status: 'declined', resolvedAt: Date.now() } : x)) });
 }
 async function withdrawChallenge(c) {
@@ -219,7 +229,8 @@ async function markSeen(c) {
   try { await F.updateDoc(F.doc(acct.db, 'challenges', c.id), { fromSeen: true }); } catch (e) { /* shown as seen on this device */ }
 }
 
-/* ---------- staying in step: publish your position as it changes, look for challenges while the app is open */
+/* ---------- staying in step: publish your position as it changes, look for challenges while the app is open
+   (every two minutes; push notifications bring the rest) */
 function initCommunity() {
   if (BUILD !== 'pwa') return;
   const tick = () => { if (document.visibilityState === 'visible' && onMap(S())) refreshChallenges(); };
@@ -232,7 +243,7 @@ function initCommunity() {
     if (!uid) { comm.published = null; setComm({ players: [], challenges: [], playersAt: 0, challengesAt: 0 }); return; }
     if (onMap(S())) publishMe(true).catch(() => { /* next change */ });
     refreshChallenges(true);
-    comm.timer = setInterval(tick, 60000);
+    comm.timer = setInterval(tick, 120000);
   };
   ACCT.sub(maybeStart);
   STORE.sub(() => { maybeStart(); if (onMap(S())) schedulePublish(); });

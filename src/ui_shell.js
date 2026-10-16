@@ -99,12 +99,13 @@ function LifeTrackCard({ s, startAction, openStop }) {
       <button class="linkbtn" onClick=${() => openStop(sid)}>About ${STOPS[sid].city}</button>` : null}</div>
   </section>`;
 }
-function HomeTab({ s, go, startAction, openStop, openRegion, playChallenge, openChallenges }) {
+function HomeTab({ s, go, startAction, openStop, openRegion, playChallenge, openChallenges, challengePlayer }) {
   const L = LEVELS[LEVEL_INDEX[currentStop(s)]];
   return html`<div class="page">
     <${ChallengeCard} onPlay=${playChallenge} onOpen=${openChallenges} />
     <${ContinueCard} s=${s} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} />
-    <${AccountNudge} s=${s} go=${go} />
+    <${PromptCard} s=${s} go=${go} />
+    <${RivalsCard} s=${s} go=${go} onChallenge=${challengePlayer} />
     <${TodayCard} s=${s} go=${go} />
     ${lifeFirst(s) ? html`<${LifeTrackCard} s=${s} startAction=${startAction} openStop=${openStop} />` : null}
     <${FactOfDay} s=${s} />
@@ -180,7 +181,8 @@ function MeTab({ go }) {
   const a = ACCT.use();
   return html`<div class="page">
     <h1 class="pagetitle display">${a.status === 'ready' ? 'Your profile' : a.status === 'off' ? 'Settings' : 'Profile'}</h1>
-    ${a.status !== 'off' ? html`<div style="margin-bottom:16px"><${AccountSection} /></div>` : null}
+    ${a.status !== 'off' ? html`<div><${AccountSection} /></div>` : null}
+    <${NotifyCard} go=${go} />
     <${Settings} go=${go} embedded />
     <p class="faint about">Surra · made in Stockholm with Claude · <a href="https://github.com/ronaksingh0075/surra" target="_blank" rel="noopener">source</a></p>
   </div>`;
@@ -194,11 +196,17 @@ function App() {
   const [view, setView] = useState(() => (S().onboarded ? null : { name: 'onboard' }));
   const [room, setRoom] = useState(null);
   const [sheet, setSheet] = useState(null);
+  const [news, setNews] = useState(false);
   useEffect(() => { applyTheme(s.settings); }, [s.settings.palette, s.settings.mode, themeOpen(s, themeById(s.settings.palette))]);
   useEffect(() => { if (s.onboarded && view && view.name === 'onboard') setView(null); }, [s.onboarded]);
   const setTab = t => { setSheet(null); setTabRaw(t); armBack(); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } };
   backNav.tab = () => tab; backNav.setTab = setTab;
-  useEffect(() => { initBack(); }, []);
+  useEffect(() => {
+    initBack();
+    if (PENDING.open) { const t = PENDING.open; PENDING.open = null; setTimeout(() => NAV.open && NAV.open(t), 60); }
+    const t = setTimeout(() => { if (newsDue(S())) setNews(true); }, 1500);
+    return () => clearTimeout(t);
+  }, []);
   const go = v => {
     setSheet(null); setRoom(null);
     const n = v.name;
@@ -209,6 +217,14 @@ function App() {
     setTab({ home: 'home', map: 'map', players: 'map', practice: 'practice', pass: 'pass', settings: 'me', account: 'me', me: 'me' }[n] || 'home');
   };
   NAV.go = go;
+  // a tap on a notification: open where it points, on top of any lesson in progress
+  NAV.open = t => {
+    if (!S().onboarded) return;
+    setView(null);
+    if (t === 'challenges') { setMapMode('players'); setTabRaw('map'); armBack(); setSheet({ type: 'challenges' }); return; }
+    if (room) { setSheet(null); setTabRaw({ players: 'map', challenges: 'map' }[t] || t); if (t === 'players') setMapMode('players'); return; }
+    go({ name: t });
+  };
   const startAction = a => {
     setSheet(null);
     const k = Date.now();
@@ -239,7 +255,7 @@ function App() {
     : tab === 'practice' ? html`<${PracticeTab} s=${s} startAction=${startAction} openStop=${openStop} />`
     : tab === 'pass' ? html`<div class="page"><${Pass} go=${go} embedded /></div>`
     : tab === 'me' ? html`<${MeTab} go=${go} />`
-    : html`<${HomeTab} s=${s} go=${go} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} playChallenge=${playChallenge} openChallenges=${openChallenges} />`;
+    : html`<${HomeTab} s=${s} go=${go} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} playChallenge=${playChallenge} openChallenges=${openChallenges} challengePlayer=${challengePlayer} />`;
   let roomEl = null;
   if (room && room.name === 'lesson') roomEl = html`<${Player} key=${room.k} lesson=${room.lesson} onExit=${closeRoom} onNext=${continueJourney} />`;
   else if (room && room.name === 'talk') roomEl = html`<${Talk} key=${room.k} sid=${room.sid} onExit=${closeRoom} onNext=${continueJourney} onRestart=${() => setRoom({ name: 'talk', sid: room.sid, k: Date.now() })} onGuided=${() => setRoom({ name: 'lesson', lesson: lessonGuided(room.sid), k: Date.now() })} />`;
@@ -258,5 +274,6 @@ function App() {
     ${sheet && sheet.type === 'players' ? html`<${PlayersSheet} key=${'p' + sheet.sid} sid=${sheet.sid} players=${sheet.players} onClose=${() => setSheet(null)} onChallenge=${challengePlayer} />` : null}
     ${sheet && sheet.type === 'challenges' ? html`<${ChallengesSheet} onClose=${() => setSheet(null)} onPlay=${playChallenge} />` : null}
     ${sheet && sheet.type === 'fact' ? html`<${FactSheet} key=${'f' + sheet.sid + sheet.i} s=${s} sid=${sheet.sid} i=${sheet.i} onClose=${() => setSheet(null)} openStop=${openStop} />` : null}
+    ${news && !room && !sheet ? html`<${NewsSheet} s=${s} go=${go} onClose=${() => setNews(false)} />` : null}
     <${Toasts} /><${Celebrate} /><${UpdateBanner} />`;
 }

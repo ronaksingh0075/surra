@@ -77,7 +77,7 @@ function freshState() {
     v: 1, onboarded: false, start: 'A2', goal: 60, xp: 0,
     streak: { count: 0, last: null, best: 0 }, log: {}, lessons: {}, checkpoints: {}, cpTried: {}, mistakes: {}, ach: {},
     stats: { answers: 0, correct: 0, bestCombo: 0, talks: 0, ownGood: 0, quickBest: 0, perfect: 0, fixed: 0 },
-    settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto' },
+    settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto', news: '', snooze: {} },
     profile: { name: '', avatar: 'bee', color: 'fjord' }, owner: null,
     community: { joined: false, setback: 0, applied: {} },
     createdAt: Date.now(), updatedAt: 0,

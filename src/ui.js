@@ -50,6 +50,8 @@ const ICONS = {
   users: [circ(9, 8, 3.5), 'M2.5 20c.9-3.6 3.4-5.5 6.5-5.5s5.6 1.9 6.5 5.5', 'M15.5 4.8a3.5 3.5 0 0 1 0 6.4', 'M17.5 14.8c2.1.7 3.4 2.5 4 5.2'],
   swords: ['M14.5 17.5L3 6V3h3l11.5 11.5', 'M13 19l6-6', 'M16 16l4 4', 'M19 21l2-2', 'M14.5 6.5L18 3h3v3l-3.5 3.5', 'M5 14l4 4', 'M7 17l-3 3', 'M3 19l2 2'],
   eyeOff: ['M3 3l18 18', 'M10.6 5.6A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.6 3.4', 'M6.3 6.8C3.9 8.4 2.5 12 2.5 12s3.5 6.5 9.5 6.5a9.3 9.3 0 0 0 4.4-1.1', 'M9.9 9.9a3 3 0 0 0 4.2 4.2'],
+  bell: ['M18 9.6a6 6 0 0 0-12 0c0 5-1.9 6.6-2.6 7.2h17.2c-.7-.6-2.6-2.2-2.6-7.2z', 'M10 20.2a2.2 2.2 0 0 0 4 0'],
+  invite: [circ(9.5, 8, 3.6), 'M3 20.3c1-3.7 3.5-5.6 6.5-5.6s5.5 1.9 6.5 5.6', 'M18.5 7.5v6M15.5 10.5h6'],
 };
 const GLYPHS = {
   tower: ['M9 21V4.5l6-1.5v18', 'M9 8.5l6-1.6M9 12.5l6-1.6M9 16.5l6-1.6', 'M6 21h12'],
@@ -512,6 +514,7 @@ function Results({ lesson, result, onExit, onNext }) {
       <div class="stamp on slam" style="width:124px"><div class="in"><${Glyph} n=${st.glyph} s=${34} /><span class="nm">${st.city}</span><span class="lv">${st.level}</span></div></div>
       <b>New stamp in your passport</b></div>` : null}
     <${NewFacts} sid=${lesson.sid} list=${result.newFacts} />
+    ${lesson.type !== 'review' ? html`<${SignupNudge} result=${result} />` : null}
     ${result.newLifeFact && lifeOn(S()) ? html`<div class="newfact"><span class="eyebrow newfact-label"><${Icon} n="flask" s=${15} />Life-science signpost unlocked</span><${FactCard} sid=${lesson.sid} fact=${LIFE_FACTS[lesson.sid]} fresh city=${false} /></div>` : null}
     <div class="actions"><button class="btn primary wide" onClick=${onNext}>Continue<${Icon} n="arrowR" s=${20} /></button><button class="btn ghost wide" onClick=${onExit}>Done</button></div>
   </div>`;
@@ -969,6 +972,7 @@ function Settings({ go, embedded }) {
     <section class="card" style="margin-top:16px">
       ${embedded ? null : html`<${AccountRow} go=${go} />`}
       <${MapPresenceRow} />
+      <${InviteRow} />
       <${InstallRow} />
       <div class="setrow"><div class="tx"><b>Conversations with Claude</b><span>${env.ai === 'ready' ? 'Available. Role-plays and feedback use your own Claude account; you\'ll be asked to allow it the first time.' : env.ai === 'checking' ? 'Checking…' : BUILD === 'pwa' ? 'Live role-plays run in the claude.ai version of Surra. Here, conversations use the guided version.' : 'Not available on this page, so conversations use the guided version.'}</span></div></div>
       <div class="setrow"><div class="tx"><b>Your progress</b><span>${env.sync === 'account' ? 'Saved to your Claude account, so it follows you across devices.' : env.sync === 'cloud' ? 'Backed up to your Surra account, so it follows you across devices.' : 'Saved on this device only.'}</span></div></div>
@@ -1011,7 +1015,7 @@ function Onboarding({ done, go }) {
       </div>
     </div>
     <div class="mapcard onb-map" aria-hidden="true"><${ZoomMap} s=${preview} interactive=${false} /></div>
-    <button class="btn primary wide" style="max-width:420px;justify-self:center" onClick=${() => { update(x => { x.onboarded = true; x.start = start; x.goal = goal; x.settings.work = work; }); done(); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } }}>Start my journey<${Icon} n="arrowR" s=${20} /></button>
+    <button class="btn primary wide" style="max-width:420px;justify-self:center" onClick=${() => { update(x => { x.onboarded = true; x.start = start; x.goal = goal; x.settings.work = work; x.settings.news = NEWS.id; }); done(); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } }}>Start my journey<${Icon} n="arrowR" s=${20} /></button>
   </div></div>`;
 }
 

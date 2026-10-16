@@ -1,4 +1,5 @@
 /* ---------- boot */
+captureParams();
 applyTheme(S().settings);
 watchSystemTheme();
 render(html`<${App} />`, document.getElementById('app'));
@@ -7,5 +8,6 @@ initAI();
 initSync();
 initInstall();
 initCommunity();
+initNotify();
 initAccount();
 initServiceWorker();

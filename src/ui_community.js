@@ -5,17 +5,20 @@ const otherOf = (c, uid) => (c.from === uid ? { name: c.toName, avatar: c.toAvat
 
 /* ---------- the Players view on the Map tab */
 function PlayersMap({ s, go, openPlayers }) {
-  const a = ACCT.use(), C = COMM.use();
+  const a = ACCT.use(), C = COMM.use(), R = RACE.use(), P = PUSH.use();
   const [busy, setBusy] = useState(false), [err, setErr] = useState(null);
   const ready = a.status === 'ready' && !!a.user && s.owner === a.user.uid;
+  const guest = a.status === 'guest' || a.status === 'unverified';
   useEffect(() => {
     if (!ready) return;
     refreshPlayers(); refreshChallenges();
     const t = setInterval(() => { if (document.visibilityState === 'visible') refreshPlayers(); }, 120000);
     return () => clearInterval(t);
   }, [ready]);
+  useEffect(() => { if (guest) loadRace(); }, [guest]);
   const joined = onMap(s);
-  const list = ready ? mapPlayers(s, C.players) : [];
+  // people without a confirmed profile see the race too, as anonymous bees: names and challenges come with a profile
+  const list = ready ? mapPlayers(s, C.players) : guest ? [...anonPlayers(R.counts), { uid: 'me', name: profileName(s), avatar: s.profile.avatar, color: s.profile.color, stop: currentStop(s), xp: s.xp, me: true, anon: true }] : [];
   const others = list.filter(p => !p.me), near = others.filter(p => Math.abs(ORDER.indexOf(p.stop) - mapIdx(s)) <= DUEL.range).length;
   const join = async () => {
     setBusy(true); setErr(null);
@@ -23,18 +26,26 @@ function PlayersMap({ s, go, openPlayers }) {
     catch (e) { setErr("Couldn't join right now. Check your connection and try again."); }
     setBusy(false);
   };
+  const total = R.total || 0;
   let card = null;
-  if (a.status === 'guest') card = { t: 'See who else is on the road', p: 'Create a free profile to join the players map, see how far others have travelled and challenge people near you.', b: ['Create a profile', () => go({ name: 'account' })] };
-  else if (a.status === 'unverified') card = { t: 'Confirm your email first', p: 'Once your email is confirmed you can join the players map.', b: ['Open your profile', () => go({ name: 'account' })] };
+  if (a.status === 'guest') card = { t: total ? `${total === 1 ? 'One learner is' : `${total} learners are`} racing to Kiruna` : 'See who else is on the road', p: 'Create a free profile to see who they are, join the map and challenge people near you.', b: ['Create a free profile', () => go({ name: 'account' })] };
+  else if (a.status === 'unverified') card = { t: 'Confirm your email first', p: `Once your email is confirmed you can see who's on the road${total ? ` (${total} so far)` : ''}, join the map and send challenges.`, b: ['Open your profile', () => go({ name: 'account' })] };
   else if (a.status === 'loading') card = { t: 'Connecting…', p: 'Looking for other players.' };
   else if (a.status === 'unavailable') card = { t: "Can't reach Surra right now", p: 'The players map needs a connection. Your own journey works offline.' };
   else if (a.status === 'ready' && !ready) card = { t: 'Connecting…', p: 'Loading your profile.' };
-  else if (ready && !joined) card = { t: 'Join the players map', p: 'Other players will see your name, avatar and city, and can challenge you to a duel. You can leave any time in Me.', b: [busy ? 'Joining…' : 'Join the map', join] };
+  else if (ready && !joined) card = { t: others.length ? `Join ${others.length} player${others.length === 1 ? '' : 's'} on the map` : 'Join the players map', p: 'Other players will see your name, avatar and city, and can challenge you to a duel. You can leave any time in Me.', b: [busy ? 'Joining…' : 'Join the map', join] };
+  const ask = ready && joined && P.support === 'ok' && P.loaded && !P.here && P.perm !== 'denied' && !snoozed(s, 'push');
+  const askOn = async () => { const r = await enablePush(); if (r === 'on') toast('Challenge alerts are on', 'bell'); else if (r === 'denied') toast('Notifications are blocked for Surra in your settings', 'info'); };
   return html`<div class="mapbox">
-    <${ZoomMap} s=${s} players=${list} onCluster=${openPlayers} focus=${{ k: 2.4, sid: mapStop(s) }} />
+    <${ZoomMap} s=${s} players=${list} onCluster=${openPlayers} focus=${{ k: 2.4, sid: ready ? mapStop(s) : currentStop(s) }} />
     ${ready ? html`<div class="pstat" aria-live="polite"><${Icon} n="users" s=${16} />
-      <span>${C.error ? "Couldn't load players" : !C.playersAt && C.loading ? 'Loading players…' : others.length ? `${others.length} other player${others.length === 1 ? '' : 's'}${joined ? ` · ${near} near you` : ''}` : joined ? 'Just you so far' : 'No players yet'}</span>
-      ${C.error ? html`<button class="linkbtn" onClick=${refreshPlayers}>Retry</button>` : null}</div>` : null}
+      <span>${C.error ? "Couldn't load players" : !C.playersAt && C.loading ? 'Loading players…' : others.length ? (joined ? `${others.length} other${others.length === 1 ? '' : 's'} · ${near} near you` : `${others.length} other player${others.length === 1 ? '' : 's'}`) : joined ? 'Just you so far' : 'No players yet'}</span>
+      ${C.error ? html`<button class="linkbtn" onClick=${refreshPlayers}>Retry</button>` : joined ? html`<button class="linkbtn" onClick=${shareInvite} aria-label="Invite a friend">Invite</button>` : null}</div>`
+      : guest && total ? html`<div class="pstat" aria-live="polite"><${LiveDot} /><span>${total} on the road${R.active && R.active < total ? ` · ${R.active} active this week` : ''}</span></div>` : null}
+    ${ask ? html`<div class="pjoin pask" role="region" aria-label="Challenge alerts">
+      <b>Get a ping when you're challenged</b><span>A notification when someone challenges you or answers yours. Nothing else unless you turn it on.</span>
+      <div class="row"><button class="btn primary small" disabled=${P.busy} onClick=${askOn}><${Icon} n="bell" s=${16} />Turn on alerts</button><button class="linkbtn" onClick=${() => snooze('push')}>Not now</button></div>
+    </div>` : null}
     ${joined && s.community.setback ? html`<div class="psetback"><${Icon} n="swords" s=${15} /><span>You're ${s.community.setback === 1 ? 'one city' : `${s.community.setback} cities`} behind your journey after a lost challenge. Each lesson you finish moves you forward again.</span></div>` : null}
     ${card ? html`<div class="pjoin" role="region" aria-label=${card.t}>
       <b>${card.t}</b><span>${card.p}</span>${err ? html`<span class="err">${err}</span>` : null}
@@ -46,6 +57,7 @@ function PlayersMap({ s, go, openPlayers }) {
 /* ---------- who's in a city */
 function PlayersSheet({ sid, players, onClose, onChallenge }) {
   const s = useApp(), C = COMM.use(), L = LEVELS[LEVEL_INDEX[sid]];
+  if (players.length && players[0].anon) return html`<${Sheet} onClose=${onClose} label=${`Learners in ${STOPS[sid].city}`}><${GuestCity} sid=${sid} n=${players.filter(p => !p.me).length} onClose=${onClose} /><//>`;
   const list = players.slice().sort((a, b) => (b.me ? 1 : 0) - (a.me ? 1 : 0) || b.xp - a.xp);
   return html`<${Sheet} onClose=${onClose} label=${`Players in ${STOPS[sid].city}`}>
     <div class="sheet-head">
@@ -144,7 +156,8 @@ function DuelRoom({ mode, target, challenge, onExit, onDecline }) {
       <div class="eyebrow">Challenge sent</div>
       <h2 class="num">${res.score} of ${DUEL.questions} right</h2>
       <div class="resgrid"><div><b>${secs(res.ms)}</b><span>Time</span></div><div><b>+${res.score * DUEL.perRight}</b><span>XP</span></div><div><b>48 h</b><span>To answer</span></div></div>
-      <p class="muted" style="max-width:44ch">${other.name} will see it next time they open Surra. You'll find the result on Home and under Challenges.</p>
+      <p class="muted" style="max-width:44ch">${notifierCfg() ? `${other.name} gets a notification if they have alerts on, and has 48 hours to answer.` : `${other.name} will see it next time they open Surra.`} You'll find the result on Home and under Challenges.</p>
+      <${PushAsk} text=${`Get a notification when ${other.name} answers`} />
       <div class="actions"><button class="btn primary wide" onClick=${onExit}>Done</button></div>
     </div>`;
   else if (phase === 'done') {

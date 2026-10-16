@@ -193,7 +193,7 @@ function keepDeviceSettings() {
   STORE.set(f); writeLocal(f);
 }
 async function signOutAccount() {
-  if (ACCT.get().status === 'ready') await flushNow();
+  if (ACCT.get().status === 'ready') { await flushNow(); await forgetDevicePush(); }
   const wasReady = ACCT.get().status === 'ready';
   detachRemote();
   await acct.F.signOut(acct.auth);
@@ -203,6 +203,7 @@ async function deleteAccount(password) {
   const F = acct.F, u = acct.auth.currentUser; if (!u) return;
   await F.reauthenticateWithCredential(u, F.EmailAuthProvider.credential(u.email, password));
   await purgeCommunity(u.uid);
+  await forgetNotify(u.uid);
   const ref = cloudRef(u.uid);
   detachRemote();
   try { await ref.remove(); } catch (e) { /* the account is removed regardless */ }
