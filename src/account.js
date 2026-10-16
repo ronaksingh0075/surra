@@ -202,6 +202,7 @@ async function signOutAccount() {
 async function deleteAccount(password) {
   const F = acct.F, u = acct.auth.currentUser; if (!u) return;
   await F.reauthenticateWithCredential(u, F.EmailAuthProvider.credential(u.email, password));
+  await purgeCommunity(u.uid);
   const ref = cloudRef(u.uid);
   detachRemote();
   try { await ref.remove(); } catch (e) { /* the account is removed regardless */ }

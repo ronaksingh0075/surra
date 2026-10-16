@@ -5,4 +5,7 @@ export {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail,
   signOut, updateProfile, reauthenticateWithCredential, EmailAuthProvider, deleteUser,
 } from 'firebase/auth';
-export { getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore/lite';
+export {
+  getFirestore, connectFirestoreEmulator, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp,
+  collection, query, where, limit, getDocs,
+} from 'firebase/firestore/lite';

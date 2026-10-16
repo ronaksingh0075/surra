@@ -51,7 +51,7 @@ function Fingerpost({ s, sid, x, y, u, lift = 0, onFact, tap }) {
 
 /* Decide what fits on screen: the bee first, then signposts nearest the middle, then city names, then road shields.
    Anything that would overlap something already placed waits until you zoom in further. */
-function mapLayout({ s, k, sc, vb, w, h, cur, interactive, pillW, pillLeft }) {
+function mapLayout({ s, k, sc, vb, w, h, cur, interactive, pillW, pillLeft, posts = true, you = true, extra = [] }) {
   const out = { posts: [], labels: {}, shields: [] };
   if (!interactive || !w) return out;
   const P = MAP.cities, pos = {};
@@ -59,18 +59,19 @@ function mapLayout({ s, k, sc, vb, w, h, cur, interactive, pillW, pillLeft }) {
   const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
   const dots = ORDER.map(sid => [sid, [pos[sid][0] - 7, pos[sid][1] - 7, pos[sid][0] + 7, pos[sid][1] + 7]]);
   const [yx, yy] = pos[cur];
-  const taken = [pillLeft ? [yx - 18 - pillW, yy - 23, yx + 12, yy + 8] : [yx - 12, yy - 23, yx + 18 + pillW, yy + 8], [w - 62, 6, w, 218]];
+  const taken = [[w - 62, 6, w, 218], ...extra];
+  if (you) taken.push(pillLeft ? [yx - 18 - pillW, yy - 23, yx + 12, yy + 8] : [yx - 12, yy - 23, yx + 18 + pillW, yy + 8]);
   const free = (b, own) => !taken.some(o => hit(o, b)) && !dots.some(([sid, d]) => sid !== own && hit(d, b));
   const seen = sid => pos[sid][0] > -60 && pos[sid][0] < w + 60 && pos[sid][1] > -30 && pos[sid][1] < h + 160;
   const mid = sid => Math.hypot(pos[sid][0] - w / 2, pos[sid][1] - h / 2);
   const order = ORDER.filter(seen).sort((a, b) => (b === cur) - (a === cur) || mid(a) - mid(b));
-  if (k >= 2.2) order.forEach(sid => {
+  if (posts && k >= 2.2) order.forEach(sid => {
     const lift = sid === cur ? 22 : 0, H = 12 + factItems(s, sid).length * 19, [x, y] = pos[sid];
     const b = [x - 44, y - H - 14 - lift, x + 44, y - 17 - lift];
     if (free(b, sid)) { out.posts.push(sid); taken.push(b); }
   });
   if (k >= 1.6) order.forEach(sid => {
-    if (sid === cur) return;
+    if (sid === cur && you) return;
     const [x, y] = pos[sid], tw = STOPS[sid].city.length * 7.6 + 4;
     const r = [x + 7, y - 10, x + 9 + tw, y + 8], l = [x - 9 - tw, y - 10, x - 7, y + 8];
     if (free(r, sid)) { out.labels[sid] = 'r'; taken.push(r); } else if (free(l, sid)) { out.labels[sid] = 'l'; taken.push(l); }
@@ -85,7 +86,48 @@ function mapLayout({ s, k, sc, vb, w, h, cur, interactive, pillW, pillLeft }) {
   return out;
 }
 
-function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact }) {
+/* ---------- players on the map: one bubble per city, merged with nearby cities when they would overlap */
+const BUB_LIFT = 30;
+const bubbleR = n => (n === 1 ? 15 : Math.min(25, 16 + Math.log2(n) * 3));
+function clusterPlayers(players, pos, minDist = 46) {
+  const groups = new Map();
+  for (const p of players) { if (!groups.has(p.stop)) groups.set(p.stop, []); groups.get(p.stop).push(p); }
+  const items = [...groups].map(([sid, list]) => ({ sids: [sid], list, xy: pos(sid) })).sort((a, b) => b.list.length - a.list.length);
+  const out = [];
+  for (const g of items) {
+    const near = out.find(c => Math.hypot(c.xy[0] - g.xy[0], c.xy[1] - g.xy[1]) < minDist);
+    if (!near) { out.push({ sids: g.sids.slice(), list: g.list.slice(), xy: g.xy.slice() }); continue; }
+    const n = near.list.length, m = g.list.length;
+    near.xy = [(near.xy[0] * n + g.xy[0] * m) / (n + m), (near.xy[1] * n + g.xy[1] * m) / (n + m)];
+    near.sids.push(...g.sids); near.list.push(...g.list);
+  }
+  return out;
+}
+function SvgAvatar({ p, r }) {
+  const [bg, fg] = AV_COLORS[p.color] || AV_COLORS.fjord, gl = GLYPHS[p.avatar];
+  return html`<g>
+    <circle r=${r} style=${`fill:${bg}`} />
+    ${p.avatar === 'initial' ? html`<text class="pc-initial" y="0.5" style=${`fill:${fg}`} font-size=${r * 1.05}>${((p.name || '').trim()[0] || '?').toUpperCase()}</text>`
+      : gl ? html`<g transform=${`translate(${-r * 0.62} ${-r * 0.62}) scale(${(r * 1.24) / 24})`} fill="none" style=${`stroke:${fg}`} stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${gl.map(d => html`<path d=${d} />`)}</g>`
+      : html`<g class="bee" transform=${`scale(${r / 13.5})`}><${BeeShape} /></g>`}
+  </g>`;
+}
+function PlayerCluster({ c, x, y, u, onTap, tap }) {
+  const n = c.list.length, R = bubbleR(n), me = c.list.some(p => p.me);
+  const where = c.sids.length === 1 ? STOPS[c.sids[0]].city : `${c.sids.length} cities near ${STOPS[c.sids[0]].city}`;
+  const label = n === 1 ? `${c.list[0].me ? 'You' : c.list[0].name}, ${where}` : `${n} players, ${where}${me ? ', including you' : ''}`;
+  return html`<g class=${cx('pc', me && 'me', n > 1 && 'many')} transform=${`translate(${x} ${y}) scale(${u})`} role="button" tabindex="0" aria-label=${label}
+      onClick=${tap(onTap)} onKeyDown=${e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(); } }}>
+    ${c.sids.length === 1 ? html`<line class="pc-stem" x1="0" y1="-5" x2="0" y2=${-BUB_LIFT + R} />` : null}
+    <g transform=${`translate(0 ${-BUB_LIFT})`}>
+      <circle class="pc-ring" r=${R + 2.5} />
+      ${n === 1 ? html`<${SvgAvatar} p=${c.list[0]} r=${R} />` : html`<circle class="pc-disc" r=${R} /><text class="pc-count" y="0.5">${n > 99 ? '99+' : n}</text>`}
+      ${n > 1 && me ? html`<circle class="pc-medot" cx=${R * 0.74} cy=${-R * 0.74} r="5" />` : null}
+    </g>
+  </g>`;
+}
+
+function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact, players = null, onCluster }) {
   const M = MAP, P = M.cities;
   const box = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -195,10 +237,19 @@ function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact
   const lit = sid => stopDone(s, sid) || LEVEL_INDEX[sid] < startIdx(s) || !!s.checkpoints[STOPS[sid].level];
   const trip = [...new Set(GEO.seg.filter(x => lit(x.a) && (lit(x.b) || x.b === cur)).flatMap(x => x.pieces))].map(id => MAP.roads.pieces[id]).join('');
   const roadW = 3.4 + Math.min(k, 8) * 0.55;
-  const discOp = k < 1.25 ? 1 : k < 1.75 ? (1.75 - k) / 0.5 : 0;
+  const pmode = !!players;
+  const discOp = pmode ? 0 : k < 1.25 ? 1 : k < 1.75 ? (1.75 - k) / 0.5 : 0;
   const [bx, by] = P[cur], curName = STOPS[cur].city, pillW = 18 + curName.length * 6.8;
   const pillLeft = (bx - vb[0]) * sc + 16 + pillW > size.w;
-  const lay = mapLayout({ s, k, sc, vb, w: size.w, h: size.h, cur, interactive, pillW, pillLeft });
+  const scr = sid => [(P[sid][0] - vb[0]) * sc, (P[sid][1] - vb[1]) * sc];
+  const clusters = pmode && size.w ? clusterPlayers(players, scr) : [];
+  const bubbles = clusters.map(c => { const R = bubbleR(c.list.length) + 4; return [c.xy[0] - R, c.xy[1] - BUB_LIFT - R, c.xy[0] + R, c.xy[1] - BUB_LIFT + R]; });
+  const lay = mapLayout({ s, k, sc, vb, w: size.w, h: size.h, cur, interactive, pillW, pillLeft, posts: !pmode, you: !pmode, extra: bubbles });
+  const tapCluster = c => {
+    if (c.sids.length === 1) { if (onCluster) onCluster({ sid: c.sids[0], players: c.list }); return; }
+    const n = c.sids.length, mx = c.sids.reduce((a, sid) => a + P[sid][0], 0) / n, my = c.sids.reduce((a, sid) => a + P[sid][1], 0) / n;
+    animateTo({ k: Math.min(KMAX, vRef.current.k * 2.2), cx: mx, cy: my });
+  };
   const nonScale = 'non-scaling-stroke';
   return html`<div class=${cx('mapzoom', interactive && 'live')} ref=${box} tabindex=${interactive ? 0 : null}
       aria-label=${interactive ? 'Journey map. Drag to move, pinch or use the buttons to zoom.' : null}
@@ -238,6 +289,7 @@ function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact
         </g>`;
       })}
       ${lay.posts.map(sid => html`<${Fingerpost} s=${s} sid=${sid} x=${P[sid][0]} y=${P[sid][1]} u=${u} lift=${sid === cur ? 22 : 0} onFact=${onFact ? (f => { mapTipDone(); onFact(f); }) : null} tap=${tap} />`)}
+      ${clusters.map(c => html`<${PlayerCluster} key=${c.sids.join('+')} c=${c} x=${vb[0] + c.xy[0] / sc} y=${vb[1] + c.xy[1] / sc} u=${u} tap=${tap} onTap=${() => tapCluster(c)} />`)}
       ${discOp > 0 ? LEVELS.map((L, li) => {
         const st = levelState(s, li), [mx, my] = L.marker;
         const cxm = L.stops.reduce((a, sid) => a + P[sid][0], 0) / 4, cym = L.stops.reduce((a, sid) => a + P[sid][1], 0) / 4;
@@ -257,12 +309,12 @@ function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact
           </g>
         </g>`;
       }) : null}
-      <g class="m-you" transform=${`translate(${bx} ${by}) scale(${u})`} role=${interactive ? 'button' : null} tabindex=${interactive ? 0 : null}
+      ${pmode ? null : html`<g class="m-you" transform=${`translate(${bx} ${by}) scale(${u})`} role=${interactive ? 'button' : null} tabindex=${interactive ? 0 : null}
           aria-label=${`You are here: ${curName}`} onClick=${interactive && onStop ? tap(() => onStop(cur)) : null} onKeyDown=${interactive && onStop ? keyAct(() => onStop(cur)) : null}>
         ${size.w >= 160 ? html`<rect class="m-herebg" x=${pillLeft ? -16 - pillW : 16} y="-20" width=${pillW} height="20" rx="10" />
         <text class="m-here" x=${pillLeft ? -16 - pillW / 2 : 16 + pillW / 2} y="-6" text-anchor="middle">${curName}</text>` : null}
         <g class="bee" transform="translate(0 -4) scale(1.15)"><${BeeShape} /></g>
-      </g>
+      </g>`}
     </svg>
     ${interactive ? html`<div class="mapctl" role="group" aria-label="Map controls">
         <button class="mapbtn" onClick=${() => animateTo({ ...vRef.current, k: vRef.current.k * 1.8 })} aria-label="Zoom in" title="Zoom in"><${Icon} n="plus" s=${20} /></button>
@@ -270,7 +322,7 @@ function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact
         <button class="mapbtn" onClick=${() => animateTo({ k: Math.max(3.4, vRef.current.k), cx: bx, cy: by })} aria-label="Go to where you are" title="Where am I?"><${Icon} n="locate" s=${20} /></button>
         <button class="mapbtn" onClick=${() => animateTo({ k: 1, cx: M.W / 2, cy: M.H / 2 })} aria-label="Show all of Sweden" title="All of Sweden"><${Icon} n="fit" s=${20} /></button>
       </div>
-      ${!MAPMEM.tapped ? html`<div class="maphint" aria-live="polite"><${Icon} n="sign" s=${16} />${lay.posts.length ? 'Tap a signpost to read a fact' : 'Zoom in to find the fact signposts'}</div>` : null}` : null}
+      ${!MAPMEM.tapped && !pmode ? html`<div class="maphint" aria-live="polite"><${Icon} n="sign" s=${16} />${lay.posts.length ? 'Tap a signpost to read a fact' : 'Zoom in to find the fact signposts'}</div>` : null}` : null}
   </div>`;
 }
 

@@ -57,15 +57,16 @@ function TopBar({ s, go }) {
 const fmtShort = n => (n < 10000 ? fmtN(n) : n < 1e6 ? (n / 1000).toFixed(n < 1e5 ? 1 : 0).replace(/\.0$/, '') + 'k' : (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M');
 
 function TabBar({ tab, setTab, s }) {
-  const a = ACCT.use();
+  const a = ACCT.use(), C = COMM.use();
   const mistakes = Object.keys(s.mistakes).length;
+  const duels = a.status === 'ready' && onMap(s) ? challengeLists(C.challenges, meUid()).incoming.length : 0;
   return html`<nav class="tabbar" aria-label="Sections">
     ${TABS.map(t => {
-      const badge = t.id === 'practice' && mistakes, dot = t.id === 'me' && a.status === 'unverified';
+      const badge = t.id === 'practice' ? mistakes : t.id === 'map' ? duels : 0, dot = t.id === 'me' && a.status === 'unverified';
       return html`<button class=${cx('tab', tab === t.id && 'on')} aria-current=${tab === t.id ? 'page' : null} onClick=${() => setTab(t.id)}
-          aria-label=${t.label + (badge ? `, ${mistakes} to review` : '') + (dot ? ', confirm your email' : '')}>
+          aria-label=${t.label + (badge ? (t.id === 'map' ? `, ${badge} challenge${badge === 1 ? '' : 's'} waiting` : `, ${badge} to review`) : '') + (dot ? ', confirm your email' : '')}>
         <span class="ti">${t.id === 'me' && a.status === 'ready' ? html`<${Avatar} p=${s.profile} s=${26} />` : html`<${Icon} n=${t.icon} s=${22} />`}
-          ${badge ? html`<span class="tbadge" aria-hidden="true">${mistakes > 9 ? '9+' : mistakes}</span>` : null}
+          ${badge ? html`<span class="tbadge" aria-hidden="true">${badge > 9 ? '9+' : badge}</span>` : null}
           ${dot ? html`<span class="tdot" aria-hidden="true"></span>` : null}
         </span>
         <span class="tl" aria-hidden="true">${t.label}</span>
@@ -98,9 +99,10 @@ function LifeTrackCard({ s, startAction, openStop }) {
       <button class="linkbtn" onClick=${() => openStop(sid)}>About ${STOPS[sid].city}</button>` : null}</div>
   </section>`;
 }
-function HomeTab({ s, go, startAction, openStop, openRegion }) {
+function HomeTab({ s, go, startAction, openStop, openRegion, playChallenge, openChallenges }) {
   const L = LEVELS[LEVEL_INDEX[currentStop(s)]];
   return html`<div class="page">
+    <${ChallengeCard} onPlay=${playChallenge} onOpen=${openChallenges} />
     <${ContinueCard} s=${s} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} />
     <${AccountNudge} s=${s} go=${go} />
     <${TodayCard} s=${s} go=${go} />
@@ -115,14 +117,19 @@ function HomeTab({ s, go, startAction, openStop, openRegion }) {
 }
 
 /* ---------- Map */
-function MapTab({ s, openStop, openRegion, openFact }) {
-  const [mode, setMode] = useState('map');
-  return html`<div class=${cx('maptab', mode === 'list' && 'listmode')}>
+function MapTab({ s, mode, setMode, go, openStop, openRegion, openFact, openPlayers, openChallenges }) {
+  const a = ACCT.use(), C = COMM.use();
+  const players = commOn();
+  const m = mode === 'players' && !players ? 'map' : mode;
+  const L = a.status === 'ready' && onMap(s) ? challengeLists(C.challenges, meUid()) : null, waiting = L ? L.incoming.length + L.unseen.length : 0;
+  return html`<div class=${cx('maptab', m === 'list' && 'listmode')}>
     <div class="maptab-head">
-      <${Seg} label="Map or list" value=${mode} options=${[{ v: 'map', l: 'Map' }, { v: 'list', l: 'Stops' }]} onChange=${setMode} />
-      <span class="chip glow">${LEVELS[highestLevel(s)].rank}</span>
+      <${Seg} label="Map view" value=${m} options=${[{ v: 'map', l: 'Map' }, ...(players ? [{ v: 'players', l: 'Players' }] : []), { v: 'list', l: 'Stops' }]} onChange=${setMode} />
+      ${m === 'players' && L ? html`<button class="btn small ghost chbtn" onClick=${openChallenges} aria-label=${`Challenges${waiting ? `, ${waiting} new` : ''}`}><${Icon} n="swords" s=${17} /><span class="lbl">Challenges</span>${waiting ? html`<span class="badge">${waiting}</span>` : null}</button>`
+        : html`<span class="chip glow">${LEVELS[highestLevel(s)].rank}</span>`}
     </div>
-    ${mode === 'map' ? html`<div class="mapbox"><${ZoomMap} s=${s} onStop=${openStop} onRegion=${openRegion} onFact=${openFact} focus=${{ k: 2.4 }} /></div>`
+    ${m === 'map' ? html`<div class="mapbox"><${ZoomMap} s=${s} onStop=${openStop} onRegion=${openRegion} onFact=${openFact} focus=${{ k: 2.4 }} /></div>`
+      : m === 'players' ? html`<${PlayersMap} s=${s} go=${go} openPlayers=${openPlayers} />`
       : html`<div class="page"><${JourneyList} s=${s} openStop=${openStop} openRegion=${openRegion} /></div>`}
   </div>`;
 }
@@ -183,6 +190,7 @@ function MeTab({ go }) {
 function App() {
   const s = useApp();
   const [tab, setTabRaw] = useState('home');
+  const [mapMode, setMapMode] = useState('map');
   const [view, setView] = useState(() => (S().onboarded ? null : { name: 'onboard' }));
   const [room, setRoom] = useState(null);
   const [sheet, setSheet] = useState(null);
@@ -197,7 +205,8 @@ function App() {
     if (n === 'onboard') { setView({ name: 'onboard' }); return; }
     if (n === 'account' && !S().onboarded) { setView({ name: 'account', mode: v.mode }); return; }
     setView(null);
-    setTab({ home: 'home', map: 'map', practice: 'practice', pass: 'pass', settings: 'me', account: 'me', me: 'me' }[n] || 'home');
+    if (n === 'players') setMapMode('players');
+    setTab({ home: 'home', map: 'map', players: 'map', practice: 'practice', pass: 'pass', settings: 'me', account: 'me', me: 'me' }[n] || 'home');
   };
   NAV.go = go;
   const startAction = a => {
@@ -220,17 +229,23 @@ function App() {
   const openStop = sid => setSheet({ type: 'stop', sid });
   const openRegion = li => setSheet({ type: 'region', li });
   const openFact = f => setSheet({ type: 'fact', ...f });
+  const openPlayers = p => setSheet({ type: 'players', ...p });
+  const openChallenges = () => setSheet({ type: 'challenges' });
+  const challengePlayer = target => { setSheet(null); setRoom({ name: 'duel', mode: 'send', target, k: Date.now() }); };
+  const playChallenge = c => { setSheet(null); setRoom({ name: 'duel', mode: 'answer', challenge: c, k: Date.now() }); };
   if (view && view.name === 'onboard') return html`<${Onboarding} done=${() => { setView(null); setTab('home'); }} go=${go} /><${Toasts} /><${UpdateBanner} />`;
   if (view && view.name === 'account') return html`<${AccountPage} go=${go} mode=${view.mode} /><${Toasts} /><${UpdateBanner} />`;
-  const body = tab === 'map' ? html`<${MapTab} s=${s} openStop=${openStop} openRegion=${openRegion} openFact=${openFact} />`
+  const body = tab === 'map' ? html`<${MapTab} s=${s} mode=${mapMode} setMode=${setMapMode} go=${go} openStop=${openStop} openRegion=${openRegion} openFact=${openFact} openPlayers=${openPlayers} openChallenges=${openChallenges} />`
     : tab === 'practice' ? html`<${PracticeTab} s=${s} startAction=${startAction} openStop=${openStop} />`
     : tab === 'pass' ? html`<div class="page"><${Pass} go=${go} embedded /></div>`
     : tab === 'me' ? html`<${MeTab} go=${go} />`
-    : html`<${HomeTab} s=${s} go=${go} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} />`;
+    : html`<${HomeTab} s=${s} go=${go} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} playChallenge=${playChallenge} openChallenges=${openChallenges} />`;
   let roomEl = null;
   if (room && room.name === 'lesson') roomEl = html`<${Player} key=${room.k} lesson=${room.lesson} onExit=${closeRoom} onNext=${continueJourney} />`;
   else if (room && room.name === 'talk') roomEl = html`<${Talk} key=${room.k} sid=${room.sid} onExit=${closeRoom} onNext=${continueJourney} onRestart=${() => setRoom({ name: 'talk', sid: room.sid, k: Date.now() })} onGuided=${() => setRoom({ name: 'lesson', lesson: lessonGuided(room.sid), k: Date.now() })} />`;
   else if (room && room.name === 'quick') roomEl = html`<${Quick} key=${room.k} onExit=${closeRoom} />`;
+  else if (room && room.name === 'duel') roomEl = html`<${DuelRoom} key=${room.k} mode=${room.mode} target=${room.target} challenge=${room.challenge} onExit=${closeRoom}
+    onDecline=${room.challenge ? (async () => { try { await declineChallenge(room.challenge); toast(`You declined ${room.challenge.fromName}'s challenge`, 'swords'); } catch (e) { toast("Couldn't decline right now. Try again.", 'info'); } closeRoom(); }) : null} />`;
   else if (room && room.name === 'generate') roomEl = html`<${Generate} key=${room.k} sid=${room.sid} onExit=${closeRoom} onReady=${lesson => setRoom({ name: 'lesson', lesson, k: Date.now() })} />`;
   return html`<div class=${cx('shell', 'tab-' + tab)}>
       <div class="wrap shell-top"><${TopBar} s=${s} go=${go} /></div>
@@ -240,6 +255,8 @@ function App() {
     ${roomEl}
     ${sheet && sheet.type === 'stop' ? html`<${StopSheet} key=${'s' + sheet.sid} sid=${sheet.sid} s=${s} onClose=${() => setSheet(null)} start=${startAction} />` : null}
     ${sheet && sheet.type === 'region' ? html`<${RegionSheet} key=${'r' + sheet.li} li=${sheet.li} s=${s} onClose=${() => setSheet(null)} openStop=${openStop} start=${startAction} />` : null}
+    ${sheet && sheet.type === 'players' ? html`<${PlayersSheet} key=${'p' + sheet.sid} sid=${sheet.sid} players=${sheet.players} onClose=${() => setSheet(null)} onChallenge=${challengePlayer} />` : null}
+    ${sheet && sheet.type === 'challenges' ? html`<${ChallengesSheet} onClose=${() => setSheet(null)} onPlay=${playChallenge} />` : null}
     ${sheet && sheet.type === 'fact' ? html`<${FactSheet} key=${'f' + sheet.sid + sheet.i} s=${s} sid=${sheet.sid} i=${sheet.i} onClose=${() => setSheet(null)} openStop=${openStop} />` : null}
     <${Toasts} /><${Celebrate} /><${UpdateBanner} />`;
 }

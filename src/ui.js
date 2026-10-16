@@ -47,6 +47,8 @@ const ICONS = {
   locate: [circ(12, 12, 3.4), circ(12, 12, 7.5), 'M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22'],
   fit: ['M4 9V4h5', 'M20 9V4h-5', 'M4 15v5h5', 'M20 15v5h-5'],
   sign: ['M12 21.5V9', 'M5 3.5h11.5l3 3-3 3H5z', 'M9 21.5h6'],
+  users: [circ(9, 8, 3.5), 'M2.5 20c.9-3.6 3.4-5.5 6.5-5.5s5.6 1.9 6.5 5.5', 'M15.5 4.8a3.5 3.5 0 0 1 0 6.4', 'M17.5 14.8c2.1.7 3.4 2.5 4 5.2'],
+  swords: ['M14.5 17.5L3 6V3h3l11.5 11.5', 'M13 19l6-6', 'M16 16l4 4', 'M19 21l2-2', 'M14.5 6.5L18 3h3v3l-3.5 3.5', 'M5 14l4 4', 'M7 17l-3 3', 'M3 19l2 2'],
   eyeOff: ['M3 3l18 18', 'M10.6 5.6A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.6 3.4', 'M6.3 6.8C3.9 8.4 2.5 12 2.5 12s3.5 6.5 9.5 6.5a9.3 9.3 0 0 0 4.4-1.1', 'M9.9 9.9a3 3 0 0 0 4.2 4.2'],
 };
 const GLYPHS = {
@@ -863,6 +865,7 @@ function Candles({ s, big }) {
     <div class="candles">${days.map((d, i) => html`<div class=${cx('c', s.log[d] > 0 && 'on')}><span class="flame"></span><span class="stick" style=${`height:${hts[i]}px`}></span><span class="d faint" style="font-size:10px;font-weight:900;margin-top:4px">${lbl[i]}</span></div>`)}</div>
   </div>`;
 }
+const badgeList = () => ACH.filter(a => a.id !== 'duel1' || commOn()); // the duel badge only where the players map exists
 function Pass({ go, embedded }) {
   const s = useApp();
   const days = weekDays();
@@ -900,8 +903,8 @@ function Pass({ go, embedded }) {
     </section>
     <${FactShelf} s=${s} />
     <section class="card" style="margin-top:16px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2 class="display" style="font-size:26px">Badges</h2><span class="chip glow num">${ACH.filter(a => s.ach[a.id]).length}/${ACH.length}</span></div>
-      <div class="achs" style="margin-top:14px">${ACH.map(a => html`<div class=${cx('ach', s.ach[a.id] && 'on')}><span class="ai"><${Icon} n=${a.icon} s=${20} /></span><span style="min-width:0"><b>${a.sv}</b><span>${a.en}</span></span></div>`)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap"><h2 class="display" style="font-size:26px">Badges</h2><span class="chip glow num">${badgeList().filter(a => s.ach[a.id]).length}/${badgeList().length}</span></div>
+      <div class="achs" style="margin-top:14px">${badgeList().map(a => html`<div class=${cx('ach', s.ach[a.id] && 'on')}><span class="ai"><${Icon} n=${a.icon} s=${20} /></span><span style="min-width:0"><b>${a.sv}</b><span>${a.en}</span></span></div>`)}</div>
     </section>
   </div>`;
 }
@@ -965,6 +968,7 @@ function Settings({ go, embedded }) {
     </section>
     <section class="card" style="margin-top:16px">
       ${embedded ? null : html`<${AccountRow} go=${go} />`}
+      <${MapPresenceRow} />
       <${InstallRow} />
       <div class="setrow"><div class="tx"><b>Conversations with Claude</b><span>${env.ai === 'ready' ? 'Available. Role-plays and feedback use your own Claude account; you\'ll be asked to allow it the first time.' : env.ai === 'checking' ? 'Checking…' : BUILD === 'pwa' ? 'Live role-plays run in the claude.ai version of Surra. Here, conversations use the guided version.' : 'Not available on this page, so conversations use the guided version.'}</span></div></div>
       <div class="setrow"><div class="tx"><b>Your progress</b><span>${env.sync === 'account' ? 'Saved to your Claude account, so it follows you across devices.' : env.sync === 'cloud' ? 'Backed up to your Surra account, so it follows you across devices.' : 'Saved on this device only.'}</span></div></div>

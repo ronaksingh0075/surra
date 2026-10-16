@@ -1,16 +1,71 @@
 rules_version = '2';
-// Surra: each person can read and write only their own progress document, and only after confirming their email.
+// Surra security rules
+// - users/{uid}: each person reads and writes only their own progress, after confirming their email.
+// - players/{uid}: the opt-in players map. Signed-in players can see it; each person writes only their own entry.
+// - challenges/{id}: duels between two players on the map. Only the two players can see a challenge; the challenger
+//   creates it after playing their round, the challenged player answers or declines, and nobody can change a score
+//   after it's written.
 service cloud.firestore {
   match /databases/{database}/documents {
+    function verified() { return request.auth != null && request.auth.token.email_verified == true; }
+    function me() { return request.auth.uid; }
+    function isStop(s) {
+      return s in ['malmo', 'ystad', 'lund', 'helsingborg', 'goteborg', 'jonkoping', 'linkoping', 'norrkoping', 'orebro', 'vasteras',
+        'uppsala', 'stockholm', 'gavle', 'sundsvall', 'ostersund', 'umea', 'lulea', 'jokkmokk', 'gallivare', 'kiruna'];
+    }
+    function text(v, max) { return v is string && v.size() >= 1 && v.size() <= max; }
+    function score(v) { return v is int && v >= 0 && v <= 8; }
+    function millis(v) { return v is int && v >= 0 && v <= 600000; }
+    function onMap(uid) { return exists(/databases/$(database)/documents/players/$(uid)); }
+
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid && request.auth.token.email_verified == true;
-      allow delete: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && request.auth.uid == uid
-        && request.auth.token.email_verified == true
+      allow read: if verified() && me() == uid;
+      allow delete: if request.auth != null && me() == uid;
+      allow create, update: if verified() && me() == uid
         && request.resource.data.keys().hasOnly(['progress', 'updatedAt', 'v'])
         && request.resource.data.progress is string
         && request.resource.data.progress.size() < 400000;
     }
+
+    match /players/{uid} {
+      allow read: if verified();
+      allow delete: if request.auth != null && me() == uid;
+      allow create, update: if verified() && me() == uid
+        && request.resource.data.keys().hasOnly(['name', 'avatar', 'color', 'stop', 'xp', 'updatedAt', 'v'])
+        && text(request.resource.data.name, 24)
+        && text(request.resource.data.avatar, 16)
+        && text(request.resource.data.color, 16)
+        && isStop(request.resource.data.stop)
+        && request.resource.data.xp is int && request.resource.data.xp >= 0
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    match /challenges/{id} {
+      function cur() { return resource.data; }
+      function nxt() { return request.resource.data; }
+      allow read: if verified() && (cur().from == me() || cur().to == me());
+      allow create: if verified() && nxt().from == me() && nxt().to is string && nxt().to != me()
+        && nxt().keys().hasOnly(['from', 'to', 'fromName', 'fromAvatar', 'fromColor', 'fromStop', 'toName', 'toAvatar', 'toColor', 'toStop',
+          'qs', 'fromScore', 'fromMs', 'status', 'created', 'v'])
+        && nxt().status == 'pending'
+        && score(nxt().fromScore) && millis(nxt().fromMs)
+        && nxt().qs is list && nxt().qs.size() == 8
+        && isStop(nxt().fromStop) && isStop(nxt().toStop)
+        && text(nxt().fromName, 24) && text(nxt().toName, 24)
+        && text(nxt().fromAvatar, 16) && text(nxt().fromColor, 16) && text(nxt().toAvatar, 16) && text(nxt().toColor, 16)
+        && nxt().created == request.time
+        && onMap(me()) && onMap(nxt().to);
+      // the challenged player plays their round or declines
+      allow update: if verified() && cur().to == me() && cur().status == 'pending'
+        && nxt().diff(cur()).affectedKeys().hasOnly(['status', 'toScore', 'toMs', 'resolvedAt'])
+        && nxt().resolvedAt == request.time
+        && (nxt().status == 'declined' || (nxt().status == 'done' && score(nxt().toScore) && millis(nxt().toMs)));
+      // the challenger marks the result as seen
+      allow update: if verified() && cur().from == me() && cur().status != 'pending'
+        && nxt().diff(cur()).affectedKeys().hasOnly(['fromSeen']) && nxt().fromSeen == true;
+      allow delete: if request.auth != null && (cur().from == me() || cur().to == me());
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

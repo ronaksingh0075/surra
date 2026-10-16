@@ -6,5 +6,6 @@ initTTS();
 initAI();
 initSync();
 initInstall();
+initCommunity();
 initAccount();
 initServiceWorker();

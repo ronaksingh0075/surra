@@ -43,6 +43,7 @@ const ACH = [
   { id: 'fix10', sv: 'Envis', en: 'Fix 10 mistakes in review', icon: 'refresh' },
   { id: 'facts10', sv: 'Nyfiken', en: 'Unlock 10 “Did you know?” facts', icon: 'bulb' },
   { id: 'lab5', sv: 'Labbråtta', en: 'Finish 5 life-science lessons', icon: 'flask' },
+  { id: 'duel1', sv: 'Utmanare', en: 'Win a challenge on the players map', icon: 'swords' },
   { id: 'factsAll', sv: 'Allvetare', en: 'Unlock all 80 facts', icon: 'book' },
   { id: 'night', sv: 'Nattuggla', en: 'Practise after 22:00', icon: 'moon' },
   { id: 'morning', sv: 'Morgonpigg', en: 'Practise before 07:00', icon: 'sun' },
@@ -61,6 +62,7 @@ function cell(initial) {
     get: () => v,
     set(n) { v = n; subs.forEach(f => f(v)); },
     use() { const [x, setX] = useState(v); useEffect(() => { subs.add(setX); setX(v); return () => subs.delete(setX); }, []); return x; },
+    sub(f) { subs.add(f); return () => subs.delete(f); },
   };
 }
 const ENV = cell({ ai: 'checking', tts: false, sync: 'device' });
@@ -77,6 +79,7 @@ function freshState() {
     stats: { answers: 0, correct: 0, bestCombo: 0, talks: 0, ownGood: 0, quickBest: 0, perfect: 0, fixed: 0 },
     settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto' },
     profile: { name: '', avatar: 'bee', color: 'fjord' }, owner: null,
+    community: { joined: false, setback: 0, applied: {} },
     createdAt: Date.now(), updatedAt: 0,
   };
 }
@@ -85,7 +88,7 @@ function withDefaults(s) {
   if (!s || typeof s !== 'object' || s.v !== 1) return d;
   for (const k of Object.keys(d)) {
     if (s[k] === undefined || s[k] === null && d[k] !== null) s[k] = d[k];
-    else if (['streak', 'stats', 'settings', 'profile'].includes(k)) for (const kk of Object.keys(d[k])) if (s[k][kk] === undefined) s[k][kk] = d[k][kk];
+    else if (['streak', 'stats', 'settings', 'profile', 'community'].includes(k)) for (const kk of Object.keys(d[k])) if (s[k][kk] === undefined) s[k][kk] = d[k][kk];
   }
   if (!LEVEL_IDS.includes(s.start)) s.start = 'A2';
   return s;
@@ -287,6 +290,7 @@ function evalAchievements(s) {
   const ft = factsTotal(s);
   if (ft >= 10) addAch(s, 'facts10');
   if (lifeDone(s) >= 5) addAch(s, 'lab5');
+  if (s.community && Object.values(s.community.applied || {}).some(a => a && a.r === 'won')) addAch(s, 'duel1');
   if (ft >= FACT_TOTAL) addAch(s, 'factsAll');
 }
 function talkVariant(stop, work) {
@@ -448,6 +452,7 @@ function completeLesson(lesson, st) {
       } else bonus = 10;
     }
     if (lesson.type === 'review') bonus = 10;
+    if (lesson.type !== 'review' && s.community && s.community.setback > 0) { s.community.setback -= 1; out.caughtUp = true; }
     if (acc === 1 && st.total >= 5) { s.stats.perfect += 1; bonus += 10; }
     out.xp = st.xp + bonus;
     awardXP(s, out.xp);
