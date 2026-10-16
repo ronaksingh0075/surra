@@ -5,13 +5,17 @@
   "description": "Surra: Swedish conversation practice from A1 to C1, as an installable web app.",
   "scripts": {
     "validate": "node tools/validate.js",
-    "build": "node tools/validate.js && node tools/build.js"
+    "build": "node tools/validate.js && node tools/build.js",
+    "map": "node tools/mapgen.js"
   },
   "devDependencies": {
     "@fontsource-variable/nunito": "^5.1.0",
     "@fontsource/caprasimo": "^5.1.0",
     "esbuild": "^0.24.0",
     "firebase": "^11.0.0",
-    "htm": "3.1.1"
+    "htm": "3.1.1",
+    "sane-topojson": "^4.0.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   }
 }

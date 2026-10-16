@@ -128,5 +128,46 @@ for (const t of tctx.THEMES) {
   }
 }
 if (Object.keys(STOPS).length !== 20) errs.push(`expected 20 stops, got ${Object.keys(STOPS).length}`);
+// ---------- the map: every stop and every road must sit on land (independent of tools/mapgen.js)
+const MAP = JSON.parse(fs.readFileSync(__dirname + '/../src/mapdata.json', 'utf8'));
+const mapStats = (() => {
+  const parse = s => s.split(' ').map(q => q.split(',').map(Number));
+  const land = MAP.sweden.map(parse), lakes = MAP.lakes.map(parse);
+  const inRing = (q, r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, yi] = r[i], [xj, yj] = r[j]; if ((yi > q[1]) !== (yj > q[1]) && q[0] < (xj - xi) * (q[1] - yi) / (yj - yi) + xi) c = !c; } return c; };
+  const segD = (q, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = dx * dx + dy * dy; const t = l ? Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l)) : 0; return Math.hypot(q[0] - a[0] - t * dx, q[1] - a[1] - t * dy); };
+  const edgeD = (q, rs) => { let d = Infinity; for (const r of rs) for (let i = 0, j = r.length - 1; i < r.length; j = i++) d = Math.min(d, segD(q, r[j], r[i])); return d; };
+  const margin = q => (!land.some(r => inRing(q, r)) ? -edgeD(q, land) : lakes.some(r => inRing(q, r)) ? -edgeD(q, lakes) : Math.min(edgeD(q, land), edgeD(q, lakes)));
+  const ORDER = LEVELS.flatMap(l => l.stops), P = MAP.cities;
+  let cityMin = Infinity, roadMin = Infinity, samples = 0;
+  for (const sid of ORDER) {
+    if (!P[sid]) { errs.push(`map: no position for ${sid}`); continue; }
+    const m = margin(P[sid]); cityMin = Math.min(cityMin, m);
+    if (m < 0.8) errs.push(`map: ${sid} is ${m < 0 ? 'in the water' : 'on the shoreline'} (${m.toFixed(2)})`);
+  }
+  // roads are cubic Bézier paths ("M x y C x1 y1 x2 y2 x y ...")
+  const curvesOf = d => { const n = d.match(/-?\d+(\.\d+)?/g).map(Number), out = []; let p = [n[0], n[1]]; for (let i = 2; i + 5 < n.length + 1; i += 6) { const q = [n[i + 4], n[i + 5]]; out.push([p, [n[i], n[i + 1]], [n[i + 2], n[i + 3]], q]); p = q; } return out; };
+  const bz = ([a, b, cc, d], t) => { const u = 1 - t; return [0, 1].map(j => u * u * u * a[j] + 3 * u * u * t * b[j] + 3 * u * t * t * cc[j] + t * t * t * d[j]); };
+  for (let i = 0; i < ORDER.length - 1; i++) {
+    const key = ORDER[i] + '-' + ORDER[i + 1], seg = MAP.roads.segs[key];
+    if (!seg) { errs.push(`map: no road for ${key}`); continue; }
+    const curves = seg.p.flatMap(id => { const raw = MAP.roads.pieces[id.replace(/^-/, '')]; if (!raw) { errs.push(`map: ${key} uses missing piece ${id}`); return []; } const cv = curvesOf(raw); return id[0] === '-' ? cv.reverse().map(([a, b, cc, d]) => [d, cc, b, a]) : cv; });
+    if (!curves.length) continue;
+    const start = curves[0][0], end = curves[curves.length - 1][3], A = P[ORDER[i]], B = P[ORDER[i + 1]];
+    if (Math.hypot(start[0] - A[0], start[1] - A[1]) > 0.05 || Math.hypot(end[0] - B[0], end[1] - B[1]) > 0.05) errs.push(`map: ${key} does not run from ${ORDER[i]} to ${ORDER[i + 1]}`);
+    let worst = Infinity, where = null;
+    for (const cv of curves) {
+      const n = Math.max(6, Math.ceil(Math.hypot(cv[3][0] - cv[0][0], cv[3][1] - cv[0][1]) / 0.25));
+      for (let k = 0; k <= n; k++) {
+        const q = bz(cv, k / n), nearCity = Math.min(Math.hypot(q[0] - A[0], q[1] - A[1]), Math.hypot(q[0] - B[0], q[1] - B[1])) < 2;
+        const m = margin(q), need = nearCity ? 0.2 : 0.5; samples++;
+        if (!nearCity) roadMin = Math.min(roadMin, m);
+        if (m < need && m < worst) { worst = m; where = q; }
+      }
+    }
+    if (where) errs.push(`map: road ${key} reaches the water near ${where.map(v => v.toFixed(1))} (${worst.toFixed(2)})`);
+  }
+  return { cities: ORDER.length, closestCity: +cityMin.toFixed(2), roadSamples: samples, closestRoad: +roadMin.toFixed(2) };
+})();
+counts.map = mapStats;
 console.log(errs.length ? errs.join('\n') : 'All checks passed', '\n', counts, '\n themes:', tctx.THEMES.length);
 process.exit(errs.length ? 1 : 0);
