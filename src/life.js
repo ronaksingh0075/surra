@@ -17,20 +17,20 @@ const LIFE = {
     replies: [
       { who: 'A lab colleague', say: 'Har du gått säkerhetsgenomgången?', en: 'Have you done the safety briefing?', opts: [
         ['Ja, i går. Den var bra.', 'Yes, yesterday. It was good.', 1, 'Yes plus when: simple and complete.'],
-        ['Nej, jag gillar kaffe.', 'No, I like coffee.', 0, 'Not an answer to the question.'],
-        ['Ja, jag heter Sam.', 'Yes, my name is Sam.', 0, "Your name isn't what they asked about."]] },
+        ['Ja, jag gick till labbet i går.', 'Yes, I walked to the lab yesterday.', 0, '“Gå en genomgång” means attending a briefing, not walking somewhere.'],
+        ['Ja, i morgon. Den var bra.', 'Yes, tomorrow. It was good.', 0, '“I morgon” (tomorrow) clashes with “var” (was). Yesterday is “i går”.']] },
       { who: 'Your lab manager', say: 'Du måste ha handskar på dig här.', en: 'You need to wear gloves here.', opts: [
         ['Okej! Var finns de?', 'Okay! Where are they?', 1, 'Agree and ask where. Perfect.'],
-        ['Nej tack, jag är mätt.', "No thanks, I'm full.", 0, "That's for when someone offers you food!"],
-        ['Varsågod!', 'Here you go!', 0, 'You say that when you hand something over.']] },
+        ['Okej, jag tar på mig skorna.', "Okay, I'll put my shoes on.", 0, 'They said “handskar” (gloves), not shoes.'],
+        ['Nej, jag måste inte.', "No, I don't have to.", 0, 'Here “måste” is a lab rule, not a suggestion. Agree, then ask where the gloves are.']] },
       { who: 'A colleague at the bench', say: 'Vad jobbar du med?', en: 'What do you work with?', opts: [
         ['Jag jobbar med kvalitetskontroll.', 'I work in quality control.', 1, '“Jobba med” plus your area.'],
-        ['Jag jobbar i morgon.', "I'm working tomorrow.", 0, "That's when, not what."],
-        ['Jag är trött.', "I'm tired.", 0, 'How you feel, not your job.']] },
+        ['Jag jobbar på måndagar och tisdagar.', 'I work on Mondays and Tuesdays.', 0, "That's when, not what."],
+        ['Jag jobbar med en kollega från Lund.', 'I work with a colleague from Lund.', 0, '“Jobba med” plus a field says what you do, not who you work with.']] },
       { who: 'Your new mentor', say: 'Säg till om du behöver hjälp!', en: 'Let me know if you need help!', opts: [
         ['Tack, det är snällt!', "Thanks, that's kind!", 1, 'Warm and natural.'],
-        ['Jag säger ingenting.', "I'm not saying anything.", 0, 'Misreads “säg till” and sounds rude.'],
-        ['Hjälp!', 'Help!', 0, 'Only if something is actually on fire!']] },
+        ['Jag säger ingenting till någon.', "I won't say anything to anyone.", 0, "“Säg till” means let me know. This sounds like you're promising to keep a secret."],
+        ['Tack, det är snällt av mig!', "Thanks, that's kind of me!", 0, 'It was kind of them: “det är snällt av dig”.']] },
     ],
     builds: [
       { en: 'Where are the safety glasses?', sv: 'Var finns skyddsglasögonen?', alt: ['Var är skyddsglasögonen?'], extra: ['är', 'handskar'] },
@@ -51,20 +51,20 @@ const LIFE = {
     replies: [
       { who: "The clinic's secretary", say: 'Överläkaren har tid på torsdag klockan tio. Passar det?', en: 'The senior consultant is free on Thursday at ten. Does that suit you?', opts: [
         ['Ja, torsdag klockan tio passar bra.', 'Yes, Thursday at ten works well.', 1, 'Repeating the time confirms it. Clear and polite.'],
-        ['Ja, jag har tio barn.', 'Yes, I have ten children.', 0, '“Tio” was the time, not your family!'],
-        ['Nej, jag är på torsdag.', 'No, I am on Thursday.', 0, "That doesn't make sense in Swedish."]] },
+        ['Ja, torsdag klockan tio passar inte bra.', "Yes, Thursday at ten doesn't suit well.", 0, '“Ja” and “passar inte” contradict each other.'],
+        ['Ja, jag har tid i tio minuter på torsdag.', 'Yes, I have time for ten minutes on Thursday.', 0, "“Klockan tio” is the time (ten o'clock), not ten minutes."]] },
       { who: 'A nurse coordinator', say: 'Hur lång tid behöver ni?', en: 'How much time do you need?', opts: [
         ['Ungefär en halvtimme räcker.', 'About half an hour is enough.', 1, '“Räcker” = is enough. Very useful.'],
-        ['Klockan är halv tre.', "It's half past two.", 0, "That's the time now, not how long."],
-        ['Vi behöver inte tid.', "We don't need time.", 0, 'Then why book a meeting?']] },
+        ['Vi kommer ungefär halv tre.', "We'll come at about half past two.", 0, "That's when you'll arrive. They asked how long you need."],
+        ['Vi behöver en lång tid, tack.', 'We need a long time, thanks.', 0, 'Vague: give an actual length, like “en halvtimme”. Swedish also says “lång tid” without “en”.']] },
       { who: 'The senior consultant, by email', say: 'Tyvärr måste jag ställa in vårt möte i morgon.', en: 'Unfortunately I have to cancel our meeting tomorrow.', opts: [
         ['Inga problem! Ska vi hitta en ny tid?', 'No problem! Shall we find a new time?', 1, 'Understanding, and it moves things forward.'],
-        ['Varför då? Det är dåligt.', "Why? That's bad.", 0, 'Too blunt for a busy doctor.'],
-        ['Tack för maten!', 'Thanks for the food!', 0, "That's what you say after a meal."]] },
+        ['Varför då? Det är väldigt dåligt av dig.', "Why? That's very bad of you.", 0, 'Far too blunt for a busy doctor.'],
+        ['Inga problem! Vi ses i morgon då.', 'No problem! See you tomorrow then.', 0, "Tomorrow's meeting is the one being cancelled, so “vi ses i morgon” misses the point."]] },
       { who: "The clinic's lab", say: 'Vi kan ta emot proverna på måndag.', en: 'We can receive the samples on Monday.', opts: [
         ['Perfekt, då skickar vi dem på fredag.', "Perfect, then we'll send them on Friday.", 1, 'Confirms and plans ahead. “Då” = then.'],
-        ['Jag tar emot på måndag.', 'I receive on Monday.', 0, 'Repeats them and muddles the meaning.'],
-        ['Måndag är min favoritdag.', 'Monday is my favourite day.', 0, 'Nobody believes that!']] },
+        ['Perfekt, då tar vi emot dem på måndag.', "Perfect, then we'll receive them on Monday.", 0, 'They receive the samples. You send them.'],
+        ['Perfekt, då skickade vi dem på fredag.', 'Perfect, then we sent them on Friday.', 0, '“Skickade” is past tense. For a plan, use the present: “då skickar vi dem”.']] },
     ],
     builds: [
       { en: 'Can we move the meeting to Wednesday?', sv: 'Kan vi flytta mötet till onsdag?', extra: ['möte', 'på'] },
@@ -85,20 +85,20 @@ const LIFE = {
     replies: [
       { who: 'A colleague from QA', say: 'Vilken avdelning sitter du på?', en: 'Which department are you in?', opts: [
         ['Jag sitter på market access, sedan i måndags.', "I'm in market access, since Monday.", 1, 'Department plus a detail keeps the chat going.'],
-        ['Jag sitter på stolen.', "I'm sitting on the chair.", 0, 'Literally true, but not what they meant!'],
-        ['Jag sitter i möte.', "I'm in a meeting.", 0, "You're at fika, so clearly not."]] },
+        ['Jag sitter på en stol vid fönstret, tror jag.', "I'm sitting on a chair by the window, I think.", 0, 'Literally true, but “sitta på” a department means working there!'],
+        ['Jag sitter på market access, sedan på måndag.', "I'm in market access, since on Monday.", 0, '“Sedan på måndag” mixes since with next Monday. Last Monday is “i måndags”.']] },
       { who: 'Someone from regulatory', say: 'Vi har en inspektion från Läkemedelsverket nästa vecka.', en: 'We have an inspection from the Medical Products Agency next week.', opts: [
         ['Oj, då har ni mycket att göra! Lycka till.', 'Oh, then you have a lot to do! Good luck.', 1, 'Empathy plus good luck: perfect fika talk.'],
-        ['Vad tråkigt för dig.', 'How boring for you.', 0, 'Sounds dismissive.'],
-        ['Jag har ingen inspektion.', "I don't have an inspection.", 0, 'Makes it about you.']] },
+        ['Oj, då har ni lite att göra! Lycka till.', 'Oh, then you have little to do! Good luck.', 0, '“Lite att göra” means not much to do. An inspection means “mycket”.'],
+        ['Skönt, då har jag ingen inspektion nästa vecka.', "Great, then I don't have an inspection next week.", 0, 'Makes it about you.']] },
       { who: 'A lab colleague', say: 'Hur gick valideringen i går?', en: 'How did the validation go yesterday?', opts: [
-        ['Bra, men vi måste upprepa ett test.', 'Good, but we have to repeat one test.', 1, 'An honest update. “Upprepa” = repeat.'],
-        ['Den går i morgon.', "It's going tomorrow.", 0, 'Wrong tense: they asked about yesterday.'],
-        ['Jag gillar inte valideringar.', "I don't like validations.", 0, 'Fair, but not an answer.']] },
+        ['Helt okej, ett av testerna måste göras om.', 'Fine overall, one of the tests has to be redone.', 1, 'An honest update. “Göras om” = be redone.'],
+        ['Bra, men vi måste upprepa en test.', 'Good, but we have to repeat a test.', 0, '“Test” is an ett-word: “ett test”.'],
+        ['Bra, men vi måste upprepade ett test.', 'Good, but we have to repeated a test.', 0, 'After “måste” comes the infinitive: “måste upprepa”.']] },
       { who: 'Your manager, passing by', say: 'Det är mycket nu, va?', en: "It's a lot right now, isn't it?", opts: [
         ['Ja, verkligen, men det är roligt.', "Yes, really, but it's fun.", 1, 'Agree with a positive twist: very Swedish.'],
-        ['Nej, jag gör ingenting.', "No, I'm doing nothing.", 0, 'Not what you want your manager to hear!'],
-        ['Mycket vad?', 'A lot of what?', 0, '“Det är mycket nu” simply means it is busy.']] },
+        ['Nej, jag har ingenting att göra just nu.', 'No, I have nothing to do right now.', 0, 'Not what you want your manager to hear!'],
+        ['Ja, det är mycket folk här nu.', 'Yes, there are a lot of people here now.', 0, "“Det är mycket nu” means it's busy at work, not crowded."]] },
     ],
     builds: [
       { en: 'Which department are you in?', sv: 'Vilken avdelning sitter du på?', extra: ['vilket', 'är'] },
@@ -119,20 +119,20 @@ const LIFE = {
     replies: [
       { who: 'The launch lead', say: 'Hur ligger vi till med förpackningsmaterialet?', en: 'Where are we with the packaging material?', opts: [
         ['Texten är klar, men vi väntar fortfarande på tryckeriet.', "The text is done, but we're still waiting for the printers.", 1, "Status plus what's blocking it."],
-        ['Det ligger på bordet.', "It's lying on the table.", 0, '“Hur ligger vi till” means how are we doing, not where it lies!'],
-        ['Jag vet inte och det spelar ingen roll.', "I don't know and it doesn't matter.", 0, 'Never say this in a launch meeting.']] },
+        ['Det ligger på bordet i mötesrummet, tror jag.', "It's lying on the table in the meeting room, I think.", 0, '“Hur ligger vi till?” means how are we doing, not where it lies!'],
+        ['Texten är klar, men vi väntar fortfarande för tryckeriet.', "The text is done, but we're still waiting for (the sake of) the printers.", 0, 'You wait “på” something: “vi väntar på tryckeriet”.']] },
       { who: 'Someone from supply', say: 'Tillverkningen har rapporterat en avvikelse i batch 12.', en: 'Manufacturing has reported a deviation in batch 12.', opts: [
         ['Påverkar det lanseringsdatumet?', 'Does that affect the launch date?', 1, 'The question everyone in the room is thinking.'],
-        ['Grattis!', 'Congratulations!', 0, 'A deviation is not good news.'],
-        ['Då struntar vi i den.', "Then we'll ignore it.", 0, 'Never ignore a deviation.']] },
+        ['Vad bra! Då är batch 12 klar.', 'Great! Then batch 12 is done.', 0, 'A deviation is a problem, not good news.'],
+        ['Då struntar vi i den och kör som vanligt.', "Then we'll ignore it and carry on as usual.", 0, 'Never ignore a deviation.']] },
       { who: 'The project manager', say: 'Vem tar ansvar för kontakten med regionerna?', en: 'Who takes responsibility for contact with the regions?', opts: [
         ['Jag kan ta det, eftersom jag redan har kontakterna.', 'I can take that, since I already have the contacts.', 1, 'Volunteer with a reason: confident but grounded.'],
-        ['Regionerna är många.', 'There are many regions.', 0, 'True, but not an answer.'],
-        ['Inte jag, i alla fall.', 'Not me, anyway.', 0, 'Sounds unhelpful.']] },
+        ['Det finns många regioner, så det tar lång tid.', 'There are many regions, so it takes a long time.', 0, "True, but it doesn't say who takes it."],
+        ['Jag kan ta det, eftersom jag har redan kontakterna.', 'I can take that, since I have already the contacts.', 0, 'In a clause starting with “eftersom”, the adverb goes before the verb: “eftersom jag redan har”.']] },
       { who: 'The medical director', say: 'Kan du återkomma med en uppdaterad tidsplan?', en: 'Can you get back to us with an updated timeline?', opts: [
         ['Absolut, jag skickar den senast på fredag.', "Absolutely, I'll send it by Friday at the latest.", 1, 'Commit to a deadline. “Senast” = at the latest.'],
-        ['Jag kommer tillbaka i morgon.', "I'm coming back tomorrow.", 0, "That's physically returning, not sending a timeline."],
-        ['Tidsplanen är redan gammal.', 'The timeline is already old.', 0, 'So update it!']] },
+        ['Absolut, jag kommer tillbaka hit på fredag.', "Absolutely, I'll come back here on Friday.", 0, "That's physically returning, not sending a timeline."],
+        ['Absolut, jag skickar den tidigast på fredag.', "Absolutely, I'll send it on Friday at the earliest.", 0, '“Tidigast” means at the earliest, which promises nothing. Commit with “senast” (at the latest).']] },
     ],
     builds: [
       { en: "We're two weeks behind schedule.", sv: 'Vi ligger två veckor efter tidsplanen.', extra: ['före', 'vecka'] },
@@ -153,19 +153,19 @@ const LIFE = {
     replies: [
       { who: "The supplier's customer service", say: 'Vad kan jag hjälpa dig med i dag?', en: 'How can I help you today?', opts: [
         ['Vi fick fel antikroppar i vår leverans i går.', 'We got the wrong antibodies in our delivery yesterday.', 1, 'States the problem clearly, and when.'],
-        ['Jag vill bara prata lite.', 'I just want to chat a bit.', 0, "Customer service won't have time for that."],
-        ['Allt är bra, tack.', 'Everything is fine, thanks.', 0, 'Then why are you calling?']] },
+        ['Jag vill bara prata lite om antikroppar i allmänhet.', 'I just want to chat a bit about antibodies in general.', 0, "Customer service won't have time for that."],
+        ['Vi fick fel antikroppar i vår leverans i morgon.', 'We got the wrong antibodies in our delivery tomorrow.', 0, '“I morgon” is tomorrow, but “fick” is past. The delivery came “i går”.']] },
       { who: 'Customer service', say: 'Har du ordernumret till hands?', en: 'Do you have the order number to hand?', opts: [
         ['Ja, det är 4471-B. Vänta, jag dubbelkollar.', "Yes, it's 4471-B. Wait, I'll double-check.", 1, 'Gives the number and stays careful.'],
-        ['Mina händer är tomma.', 'My hands are empty.', 0, '“Till hands” = available, not literally in your hands!'],
-        ['Nej, det har du.', 'No, you have it.', 0, 'Unhelpful and a bit rude.']] },
+        ['Nej, mina händer är tomma, men jag har en penna.', 'No, my hands are empty, but I have a pen.', 0, '“Till hands” means available, not literally in your hands!'],
+        ['Ja, det är 4471-B. Vänta, jag dubbelkollar dig.', "Yes, it's 4471-B. Wait, I'll double-check you.", 0, 'You double-check the number, not the person: “jag dubbelkollar”.']] },
       { who: 'Customer service', say: 'Det låter som att kylkedjan har brutits. Vill du ha en ersättning?', en: 'It sounds like the cold chain has been broken. Would you like a replacement?', opts: [
         ['Ja tack, gärna med expressleverans.', 'Yes please, with express delivery if possible.', 1, '“Gärna” makes a request softer and polite.'],
-        ['Nej, vi använder dem ändå.', "No, we'll use them anyway.", 0, 'A bad idea once the cold chain is broken!'],
-        ['Kylkedjan är inte mitt problem.', "The cold chain isn't my problem.", 0, 'It very much is.']] },
+        ['Nej tack, vi använder dem ändå i labbet.', "No thanks, we'll use them in the lab anyway.", 0, 'A bad idea once the cold chain is broken!'],
+        ['Kylkedjan är inte vårt problem, det är ert.', "The cold chain isn't our problem, it's yours.", 0, "Blaming them won't get you a replacement any faster."]] },
       { who: 'Your lab manager', say: 'Fick du något svar från leverantören?', en: 'Did you get any answer from the supplier?', opts: [
         ['Ja, de skickar en ny leverans på torsdag och krediterar oss.', "Yes, they're sending a new delivery on Thursday and crediting us.", 1, 'A full update: what, when and the refund.'],
-        ['Ja, de svarade.', 'Yes, they answered.', 0, 'Too thin: what did they say?'],
+        ['Ja, de svarade i går. Det var ett väldigt trevligt samtal faktiskt.', 'Yes, they answered yesterday. It was actually a very nice conversation.', 0, 'Pleasant, but what did they say? Your manager needs the outcome.'],
         ['Jag har inte ringt dem än, men det löser sig.', "I haven't called them yet, but it'll work out.", 0, 'Not reassuring for a lab manager.']] },
     ],
     builds: [
@@ -186,21 +186,21 @@ const LIFE = {
     ],
     replies: [
       { who: 'The hiring manager', say: 'Berätta lite om dig själv.', en: 'Tell me a little about yourself.', opts: [
-        ['Jag har en master i life science och erfarenhet av marknadsanalys och lanseringar.', "I have a master's in life science and experience in market analysis and launches.", 1, 'Education plus relevant experience: a solid opener.'],
-        ['Jag är född på en tisdag.', 'I was born on a Tuesday.', 0, 'Charming, but not what they need.'],
-        ['Det står i mitt CV.', "It's in my CV.", 0, 'Sounds unwilling. Always answer in your own words.']] },
+        ['Jag har en master i life science och har jobbat med lanseringar.', "I have a master's in life science and have worked on launches.", 1, 'Education plus relevant experience: a solid opener.'],
+        ['Jag är född på en tisdag och jag har alltid gillat helger mest.', "I was born on a Tuesday and I've always liked weekends best.", 0, 'Charming, but not what they need.'],
+        ['Det mesta står redan i mitt CV, så det kan du läsa där.', 'Most of it is already in my CV, so you can read it there.', 0, 'Sounds unwilling. Always answer in your own words.']] },
       { who: 'The hiring manager', say: 'Varför vill du jobba hos oss?', en: 'Why do you want to work with us?', opts: [
         ['Ni utvecklar behandlingar som verkligen gör skillnad för patienter.', 'You develop treatments that really make a difference for patients.', 1, 'Patient impact is what life-science companies want to hear.'],
-        ['Ni ligger nära min lägenhet.', "You're close to my flat.", 0, 'Honest, maybe, but not convincing.'],
-        ['Jag behöver ett jobb.', 'I need a job.', 0, 'Everyone does. Say why this one.']] },
+        ['Ni ligger nära min lägenhet, och jag har hört att lönerna är bra.', "You're close to my flat, and I've heard the salaries are good.", 0, 'Honest, maybe, but not convincing.'],
+        ['Ni utvecklar behandlingar som verkligen gör skillnad på patienter.', 'You develop treatments that really treat patients differently.', 0, '“Göra skillnad på” means treating people differently. You mean “göra skillnad för patienter”.']] },
       { who: 'The team lead', say: 'Hur skulle du hantera en kollega som inte håller deadlines?', en: "How would you handle a colleague who doesn't meet deadlines?", opts: [
         ['Jag skulle prata med personen och försöka förstå vad som står i vägen.', "I'd talk to the person and try to understand what's in the way.", 1, 'Calm, curious and collaborative: very Swedish workplace.'],
-        ['Jag skulle klaga hos chefen direkt.', "I'd complain to the manager straight away.", 0, "Skipping the colleague isn't well seen."],
-        ['Deadlines är inte så viktiga.', "Deadlines aren't that important.", 0, 'Not in a launch!']] },
+        ['Jag skulle gå direkt till chefen och klaga, utan att säga något först.', "I'd go straight to the manager and complain, without saying anything first.", 0, "Skipping the colleague isn't well seen in Swedish workplaces."],
+        ['Jag skulle prata med personen och försöka förstå vad står i vägen.', "I'd talk to the person and try to understand what stands in the way.", 0, 'When “vad” is the subject of an indirect question, add “som”: “vad som står i vägen”.']] },
       { who: 'The hiring manager', say: 'Har du några frågor till oss?', en: 'Do you have any questions for us?', opts: [
-        ['Ja, vad ser ni som den största utmaningen för teamet det närmaste året?', "Yes, what do you see as the team's biggest challenge in the coming year?", 1, 'Thoughtful and forward-looking.'],
-        ['Nej, inga frågor.', 'No, no questions.', 0, 'Can seem uninterested. Always ask one.'],
-        ['Hur mycket semester får jag?', 'How much holiday do I get?', 0, 'Fair to know, but not as your only question in round one.']] },
+        ['Ja, vad ser ni som teamets största utmaning det närmaste året?', "Yes, what do you see as the team's biggest challenge in the coming year?", 1, 'Thoughtful and forward-looking.'],
+        ['Nej, inga frågor. Ni har redan förklarat allt så bra.', "No, no questions. You've already explained everything so well.", 0, 'Flattering, but it can seem uninterested. Always ask one.'],
+        ['Ja, hur mycket semester får jag, och när kan jag ta ut den?', 'Yes, how much holiday do I get, and when can I take it?', 0, 'Fair to know, but not as your only question in round one.']] },
     ],
     builds: [
       { en: 'I learn quickly.', sv: 'Jag lär mig snabbt.', extra: ['läser', 'snabb'] },
@@ -220,21 +220,21 @@ const LIFE = {
     ],
     replies: [
       { who: "The region's procurement officer", say: 'Ert pris ligger högre än konkurrentens.', en: "Your price is higher than your competitor's.", opts: [
-        ['Det stämmer, men vårt anbud inkluderar utbildning och support som de inte erbjuder.', "That's right, but our bid includes training and support that they don't offer.", 1, 'Acknowledge, then reframe on value.'],
-        ['Då är deras läkemedel sämre.', 'Then their medicine is worse.', 0, 'Badmouthing a competitor rarely works.'],
-        ['Okej, vi halverar priset.', "Okay, we'll halve the price.", 0, 'Never cave in at the first push.']] },
+        ['Det stämmer, men vårt anbud inkluderar utbildning och support.', "That's right, but our bid includes training and support.", 1, 'Acknowledge, then reframe on value.'],
+        ['Det stämmer, men det beror på att deras läkemedel är sämre.', "That's right, but that's because their medicine is worse.", 0, 'Badmouthing a competitor rarely works.'],
+        ['Det stämmer inte, vårt pris är faktiskt lägst på marknaden.', "That's not right, our price is actually the lowest on the market.", 0, 'Denying their own price comparison damages trust.']] },
       { who: 'The procurement officer', say: 'Kan ni sänka priset med tio procent?', en: 'Can you lower the price by ten percent?', opts: [
         ['Det kan vi, under förutsättning att avtalet förlängs till tre år.', 'We can, provided the agreement is extended to three years.', 1, 'A concession for a concession: classic negotiation.'],
-        ['Nej, aldrig i livet.', 'No, not on your life.', 0, 'Too blunt: it closes the door.'],
-        ['Tio procent av vad?', 'Ten percent of what?', 0, 'Sounds unprepared.']] },
+        ['Nej, aldrig i livet. Vårt pris är redan alldeles för lågt.', 'No, not on your life. Our price is already far too low.', 0, 'Too blunt: it closes the door.'],
+        ['Det kan vi, under förutsättning att avtalet förkortas till ett år.', 'We can, provided the agreement is shortened to one year.', 0, 'A discount for a shorter contract gives value away twice. Ask for something in return.']] },
       { who: 'A pharmacist on the drug committee', say: 'Hur säkerställer ni leveranssäkerheten?', en: 'How do you ensure security of supply?', opts: [
         ['Vi har två tillverkningsanläggningar och säkerhetslager i Sverige.', 'We have two manufacturing sites and safety stock in Sweden.', 1, 'Concrete facts build trust.'],
-        ['Vi hoppas att det går bra.', 'We hope it goes well.', 0, 'Hope is not a supply strategy.'],
-        ['Det är inte vår sak.', "That's not our business.", 0, "It's exactly what they need to know."]] },
+        ['Vi hoppas att det går bra, det har det alltid gjort hittills.', 'We hope it goes well, it always has so far.', 0, 'Hope is not a supply strategy.'],
+        ['Det är inte vår sak, det får apoteken lösa själva.', "That's not our business, the pharmacies will have to sort it out.", 0, "It's exactly what they need to know."]] },
       { who: 'The procurement officer', say: 'Vi behöver ett svar senast i morgon.', en: 'We need an answer by tomorrow at the latest.', opts: [
-        ['Jag förstår. Jag stämmer av med vår prissättning i dag och återkommer i morgon förmiddag.', "I understand. I'll check with our pricing team today and get back to you tomorrow morning.", 1, 'Respect the deadline and commit to a time.'],
-        ['Det hinner vi inte.', "We won't make it.", 0, 'Offer a plan instead.'],
-        ['Varför så bråttom?', 'Why such a rush?', 0, 'Sounds defensive.']] },
+        ['Jag förstår. Jag stämmer av internt i dag och återkommer i morgon.', "I understand. I'll check internally today and get back to you tomorrow.", 1, 'Respect the deadline and commit to a time.'],
+        ['Det hinner vi inte. Ni får vänta till nästa vecka.', "We won't make it. You'll have to wait until next week.", 0, 'Ignores their deadline. Offer a plan instead.'],
+        ['Jag förstår. Jag stämmer av internt i dag och återkommer i övermorgon.', "I understand. I'll check internally today and get back to you the day after tomorrow.", 0, '“I övermorgon” is the day after tomorrow, which misses their deadline.']] },
     ],
     builds: [
       { en: 'Can we meet halfway?', sv: 'Kan vi mötas på halva vägen?', extra: ['träffas', 'halv'] },
@@ -254,21 +254,21 @@ const LIFE = {
     ],
     replies: [
       { who: 'A sceptical colleague', say: 'Hur vet vi att ökningen beror på kampanjen?', en: 'How do we know the increase is due to the campaign?', opts: [
-        ['Vi vet inte säkert, men ökningen syns bara i regionerna där vi körde kampanjen.', "We don't know for sure, but the increase only shows in the regions where we ran the campaign.", 1, 'Honest about uncertainty, backed by evidence.'],
-        ['Det är självklart.', "It's obvious.", 0, "Claims without evidence won't convince anyone."],
-        ['Lita på mig.', 'Trust me.', 0, 'Data, not trust.']] },
+        ['Vi vet inte säkert, men ökningen syns bara där vi körde kampanjen.', "We don't know for sure, but the increase only shows where we ran the campaign.", 1, 'Honest about uncertainty, backed by evidence.'],
+        ['Det är väl självklart, den kom ju precis efter kampanjen.', "It's obvious, isn't it? It came right after the campaign.", 0, "Coming after the campaign doesn't prove the campaign caused it."],
+        ['Vi vet det säkert, eftersom ökningen syns i alla regioner, även utan kampanj.', 'We know for sure, because the increase shows in all regions, even without a campaign.', 0, 'An increase in regions without the campaign points away from the campaign, not towards it.']] },
       { who: 'The country manager', say: 'Kan du sammanfatta det viktigaste på en minut?', en: 'Can you sum up the key points in a minute?', opts: [
-        ['Absolut. Försäljningen ökar, vi ligger före budget och nästa steg är fler regioner.', "Absolutely. Sales are rising, we're ahead of budget and the next step is more regions.", 1, 'Three crisp points: exactly what was asked.'],
-        ['Nej, det tar minst en timme.', 'No, it takes at least an hour.', 0, 'Learn the one-minute version!'],
-        ['Allt är viktigt.', 'Everything is important.', 0, "That's not a summary."]] },
+        ['Absolut. Vi ligger före budget och nästa steg är fler regioner.', "Absolutely. We're ahead of budget and the next step is more regions.", 1, 'Crisp points: exactly what was asked.'],
+        ['Nej, det går inte. Det tar minst en timme att gå igenom allt.', "No, it can't be done. It takes at least an hour to go through everything.", 0, 'Learn the one-minute version!'],
+        ['Absolut. Allt är lika viktigt, så jag börjar från början.', "Absolutely. Everything is equally important, so I'll start from the beginning.", 0, "That's not a summary."]] },
       { who: 'A medical advisor', say: 'Är resultaten statistiskt signifikanta?', en: 'Are the results statistically significant?', opts: [
         ['Ja, för det primära effektmåttet, men inte för de sekundära.', 'Yes, for the primary endpoint, but not for the secondary ones.', 1, 'Precise and transparent.'],
-        ['De är väldigt bra.', "They're very good.", 0, "Doesn't answer the statistical question."],
-        ['Signifikant betyder stort.', 'Significant means big.', 0, 'Not in statistics!']] },
+        ['Ja, de är väldigt bra och patienterna är mycket nöjda.', "Yes, they're very good and the patients are very happy.", 0, "Doesn't answer the statistical question."],
+        ['Ja, effekten är signifikant, det vill säga väldigt stor.', 'Yes, the effect is significant, that is, very big.', 0, 'In statistics “signifikant” means unlikely to be chance, not big.']] },
       { who: 'Someone at the back of the room', say: 'Har ni jämfört med förra året?', en: 'Have you compared with last year?', opts: [
-        ['Bra fråga. Inte i den här versionen, men jag kan skicka en jämförelse efter mötet.', 'Good question. Not in this version, but I can send a comparison after the meeting.', 1, 'Admit the gap and offer a follow-up.'],
-        ['Det spelar ingen roll.', "It doesn't matter.", 0, 'Sounds dismissive in front of everyone.'],
-        ['Förra året jobbade jag inte här.', "Last year I didn't work here.", 0, 'Maybe true, but not helpful.']] },
+        ['Bra fråga. Inte här, men jag skickar en jämförelse efter mötet.', "Good question. Not here, but I'll send a comparison after the meeting.", 1, 'Admit the gap and offer a follow-up.'],
+        ['Det spelar ingen roll, förra året var ju ett helt annat år.', "It doesn't matter, last year was a completely different year.", 0, 'Sounds dismissive in front of everyone.'],
+        ['Förra året jobbade jag inte här, så det vet jag inget om.', "Last year I didn't work here, so I don't know anything about that.", 0, 'Maybe true, but not helpful.']] },
     ],
     builds: [
       { en: 'Let me summarise the most important points.', sv: 'Låt mig sammanfatta de viktigaste punkterna.', extra: ['jag', 'viktig'] },
@@ -289,20 +289,20 @@ const LIFE = {
     replies: [
       { who: 'A TLV investigator', say: 'Vår bedömning är att priset inte är kostnadseffektivt.', en: 'Our assessment is that the price is not cost-effective.', opts: [
         ['Jag förstår er bedömning. Får vi visa hur modellen ser ut med längre uppföljningsdata?', 'I understand your assessment. May we show how the model looks with longer follow-up data?', 1, 'Acknowledge, then offer new evidence: diplomatic and constructive.'],
-        ['Då har ni räknat fel.', "Then you've calculated it wrong.", 0, 'Accusations close doors with authorities.'],
-        ['Det är inte vårt problem.', "That's not our problem.", 0, "Patient access is everyone's problem."]] },
+        ['Då har ni nog räknat fel någonstans, för vår modell visar något helt annat.', "Then you've probably miscalculated somewhere, because our model shows something completely different.", 0, 'Accusations close doors with authorities.'],
+        ['Jag förstår er bedömning. Får vi visa hur modellen ser ut med kortare uppföljningsdata?', 'I understand your assessment. May we show how the model looks with shorter follow-up data?', 0, 'Shorter follow-up means less evidence, not more. New evidence comes from longer follow-up.']] },
       { who: 'A regional health economist', say: 'Era antaganden om behandlingslängd känns optimistiska.', en: 'Your assumptions about treatment duration feel optimistic.', opts: [
         ['Det är en rimlig invändning. Vi kan köra en känslighetsanalys med kortare behandlingstid.', "That's a fair objection. We can run a sensitivity analysis with a shorter treatment duration.", 1, 'Concedes the point and offers rigour.'],
-        ['Alla antaganden är optimistiska.', 'All assumptions are optimistic.', 0, 'Undermines your own model.'],
-        ['Vi tycker att de är realistiska, punkt.', 'We think they are realistic, full stop.', 0, 'Too rigid for a technical dialogue.']] },
+        ['Alla antaganden är väl lite optimistiska, det är ju så modeller fungerar.', "All assumptions are a bit optimistic, that's how models work.", 0, 'Undermines your own model.'],
+        ['Det är en rimlig invändning. Vi kan köra en känslighetsanalys med längre behandlingstid.', "That's a fair objection. We can run a sensitivity analysis with a longer treatment duration.", 0, 'A longer duration makes the model even more optimistic. The objection calls for a shorter one.']] },
       { who: 'Your general manager', say: 'Hur ska vi gå vidare efter beskedet?', en: 'How should we proceed after the decision?', opts: [
-        ['Jag föreslår att vi begär ett möte, kompletterar underlaget och öppnar för ett riskdelningsavtal.', 'I suggest we request a meeting, supplement the dossier and open up for a risk-sharing agreement.', 1, 'A clear, three-part plan.'],
-        ['Vi får väl vänta och se.', "I suppose we'll wait and see.", 0, 'Too passive for market access.'],
-        ['Vi drar tillbaka produkten från Sverige.', 'We withdraw the product from Sweden.', 0, 'A drastic overreaction.']] },
+        ['Jag föreslår att vi begär ett möte, kompletterar underlaget och öppnar för riskdelning.', 'I suggest we request a meeting, supplement the dossier and open up for risk sharing.', 1, 'A clear, three-part plan.'],
+        ['Vi får väl vänta och se vad som händer. Sånt här brukar oftast lösa sig av sig självt.', "I suppose we'll wait and see what happens. Things like this usually sort themselves out.", 0, 'Too passive for market access.'],
+        ['Jag föreslår att vi drar tillbaka produkten från Sverige och satsar på andra marknader.', 'I suggest we withdraw the product from Sweden and focus on other markets.', 0, 'A drastic overreaction.']] },
       { who: 'A patient organisation representative', say: 'Patienterna har väntat länge. Varför tar det så lång tid?', en: 'Patients have waited a long time. Why is it taking so long?', opts: [
-        ['Jag förstår frustrationen helt. Vi gör allt vi kan för att nå en lösning så snart som möjligt.', "I completely understand the frustration. We're doing everything we can to reach a solution as soon as possible.", 1, 'Empathy first, then commitment, without blaming anyone.'],
-        ['Det är TLV:s fel.', "It's TLV's fault.", 0, 'Public blame rarely helps the dialogue.'],
-        ['Sådant tar tid.', 'These things take time.', 0, 'True, but it sounds cold to patients.']] },
+        ['Jag förstår frustrationen. Vi gör allt vi kan för att nå en lösning så snart som möjligt.', "I understand the frustration. We're doing everything we can to reach a solution as soon as possible.", 1, 'Empathy first, then commitment, without blaming anyone.'],
+        ['Det är faktiskt TLV:s fel. De är alldeles för långsamma och byråkratiska med allt.', "It's actually TLV's fault. They're far too slow and bureaucratic about everything.", 0, 'Public blame rarely helps the dialogue.'],
+        ['Sådana här processer tar tid, och det får patienterna tyvärr acceptera, helt enkelt.', 'Processes like these take time, and patients will simply have to accept that.', 0, 'True, but it sounds cold to patients.']] },
     ],
     builds: [
       { en: "We're open to a risk-sharing agreement.", sv: 'Vi är öppna för ett riskdelningsavtal.', extra: ['öppen', 'en'] },
@@ -322,21 +322,21 @@ const LIFE = {
     ],
     replies: [
       { who: 'An experienced lab technician', say: 'Varför ska vi byta? Pappersjournalen har fungerat i tjugo år.', en: 'Why should we switch? The paper notebook has worked for twenty years.', opts: [
-        ['Det har den, och er erfarenhet är viktig. Men det nya systemet minskar risken för fel vid inspektioner.', 'It has, and your experience matters. But the new system reduces the risk of errors at inspections.', 1, 'Respect their experience, then give a concrete reason.'],
-        ['För att jag har bestämt det.', "Because I've decided so.", 0, 'Top-down orders rarely work in Swedish workplaces.'],
-        ['Papper är gammaldags.', 'Paper is old-fashioned.', 0, "Dismissive of people who've done good work."]] },
+        ['Det har den, och er erfarenhet är viktig. Men det nya systemet minskar risken för fel.', 'It has, and your experience matters. But the new system reduces the risk of errors.', 1, 'Respect their experience, then give a concrete reason.'],
+        ['För att jag har bestämt det, och ledningen tycker likadant, så det är inget att diskutera.', "Because I've decided so, and management agrees, so there's nothing to discuss.", 0, 'Top-down orders rarely work in Swedish workplaces.'],
+        ['Papper är gammaldags, och ingen använder sånt längre i ett modernt labb.', 'Paper is old-fashioned, and nobody uses it in a modern lab any more.', 0, "Dismissive of people who've done good work."]] },
       { who: 'A worried researcher', say: 'Jag är rädd att det kommer att ta mer tid än det sparar.', en: "I'm afraid it'll take more time than it saves.", opts: [
         ['Det är en befogad farhåga. Därför börjar vi med en pilot och mäter tidsåtgången.', "That's a justified concern. That's why we're starting with a pilot and measuring the time it takes.", 1, "Validate the worry, then show how you'll test it."],
-        ['Det kommer inte att hända.', "That won't happen.", 0, 'Dismisses the concern without evidence.'],
-        ['Då får du jobba över.', "Then you'll have to work overtime.", 0, 'A sure way to lose the team.']] },
+        ['Det kommer inte att hända. Det har leverantören lovat oss, så du kan vara helt lugn.', "That won't happen. The supplier has promised us, so you can relax.", 0, 'Dismisses the concern without evidence.'],
+        ['Det är en befogad farhåga. Därför hoppar vi över piloten och kör igång direkt.', "That's a justified concern. That's why we're skipping the pilot and starting straight away.", 0, 'Skipping the pilot is the opposite of testing the worry.']] },
       { who: 'The QA manager', say: 'Hur säkerställer vi att data förblir spårbara?', en: 'How do we ensure the data stays traceable?', opts: [
         ['Systemet har fullständig ändringshistorik, och vi validerar det enligt GMP innan vi går live.', "The system has a full audit trail, and we'll validate it according to GMP before going live.", 1, "Speaks QA's language: audit trail, validation, GMP."],
-        ['Det löser IT.', 'IT will sort it.', 0, "Sounds like you haven't thought about it."],
-        ['Spårbarhet är överskattad.', 'Traceability is overrated.', 0, 'Never say this to QA!']] },
+        ['Det löser IT-avdelningen åt oss när vi har gått live, så det behöver vi inte tänka på nu.', "The IT department will sort it out once we've gone live, so we don't need to think about it now.", 0, "Sounds like you haven't thought about it, and QA will notice."],
+        ['Systemet har fullständig ändringshistorik, så vi behöver inte validera det enligt GMP.', "The system has a full audit trail, so we don't need to validate it according to GMP.", 0, "An audit trail doesn't replace validation. QA will want both."]] },
       { who: 'Your site director', say: 'Hur får vi med oss hela organisationen?', en: 'How do we get the whole organisation on board?', opts: [
-        ['Genom att involvera nyckelpersoner tidigt, utbilda ordentligt och visa resultat från piloten.', 'By involving key people early, training properly and showing results from the pilot.', 1, 'A credible change plan in one sentence.'],
-        ['Vi skickar ett mejl till alla.', "We'll send an email to everyone.", 0, 'Information is not the same as buy-in.'],
-        ['De får vänja sig.', "They'll have to get used to it.", 0, 'Too dismissive for a leader.']] },
+        ['Genom att involvera nyckelpersoner tidigt, utbilda ordentligt och visa resultat.', 'By involving key people early, training properly and showing results.', 1, 'A credible change plan in one sentence.'],
+        ['Vi skickar ett tydligt mejl till alla om att systemet gäller från och med måndag.', "We'll send a clear email to everyone that the system applies from Monday.", 0, 'Information is not the same as buy-in.'],
+        ['Genom att involvera nyckelpersoner sent, när allt redan är bestämt och klart.', 'By involving key people late, when everything is already decided.', 0, 'Involving people once everything is decided is how resistance grows. Involve them early.']] },
     ],
     builds: [
       { en: 'We start with a pilot project.', sv: 'Vi börjar med ett pilotprojekt.', extra: ['en', 'började'] },

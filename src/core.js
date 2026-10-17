@@ -622,6 +622,7 @@ function genPrompt(stop, work) {
 Level: CEFR ${stop.level}. Theme: ${stop.theme} (${stop.en}). Register: ${REG_GUIDE[stop.reg]}${focus}
 
 Each item: someone says one line to the learner, who picks the best reply out of 3. Exactly one option is best. The two others must be believable traps for a ${stop.level} learner: wrong meaning, wrong tense, wrong word order, wrong register or a literal translation from English.
+Keep all three options about the same length and style: the best reply must not be the longest or the most detailed one. Often let one trap differ from the best reply by only a word or two, and sometimes make the two traps near-twins of each other instead.
 
 Reply with ONLY a JSON array of 6 objects shaped like this:
 {"who":"A colleague","say":"Swedish line","en":"English translation","cue":"","opts":[["Swedish reply","English translation",true,"why it works"],["...","...",false,"why it's wrong"],["...","...",false,"why it's wrong"]]}

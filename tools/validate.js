@@ -8,6 +8,23 @@ const { LEVELS, STOPS, FACTS, FACT_THEMES, LIFE, LIFE_FACTS } = ctx;
 
 const errs = [];
 const tok = s => s.replace(/[.,!?:;“”"–—]/g, ' ').split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
+// ---------- multiple choice: the best reply must not give itself away by its length, or by being the one
+// option that doesn't look like the other two. Per question, and across the whole bank (chance is 1 in 3).
+const mc = { n: 0, longest: 0, shortest: 0, avoidOdd: 0, pickOdd: 0 };
+const lev = (a, b) => { let prev = Array.from({ length: b.length + 1 }, (_, j) => j); for (let i = 1; i <= a.length; i++) { const cur = [i]; for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; } return prev[b.length]; };
+function choiceCheck(where, texts, best) {
+  const L = texts.map(x => x.length), others = L.filter((_, j) => j !== best), hi = Math.max(...others), lo = Math.min(...others);
+  if (L[best] > hi * 1.25 + 4) errs.push(`${where}: the best reply is much longer than the others (${L[best]} vs ${hi} characters)`);
+  if (L[best] < lo * 0.6 - 2) errs.push(`${where}: the best reply is much shorter than the others (${L[best]} vs ${lo} characters)`);
+  const mx = Math.max(...L), mn = Math.min(...L);
+  mc.n++;
+  if (L[best] === mx) mc.longest += 1 / L.filter(x => x === mx).length;
+  if (L[best] === mn) mc.shortest += 1 / L.filter(x => x === mn).length;
+  const sims = [[0, 1], [0, 2], [1, 2]].map(([i, j]) => [1 - lev(texts[i], texts[j]) / Math.max(L[i], L[j]), i, j]).sort((a, b) => b[0] - a[0]);
+  if (sims[0][0] >= 0.75) { const inPair = sims[0][1] === best || sims[0][2] === best; mc.avoidOdd += inPair ? 0.5 : 0; mc.pickOdd += inPair ? 0 : 1; }
+  else { mc.avoidOdd += 1 / 3; mc.pickOdd += 1 / 3; }
+}
+const replyChoices = (where, r) => { if (r.opts && r.opts.length === 3 && r.opts.filter(o => o[2] === 1).length === 1) choiceCheck(where, r.opts.map(o => String(o[0])), r.opts.findIndex(o => o[2] === 1)); };
 const ids = new Set();
 let counts = { phrases: 0, replies: 0, builds: 0, gaps: 0, talks: 0, facts: 0 };
 for (const lv of LEVELS) {
@@ -29,6 +46,7 @@ for (const lv of LEVELS) {
       const ok = r.opts.filter(o => o[2] === 1).length; if (ok !== 1) errs.push(`${sid} r${i}: ${ok} correct`);
       r.opts.forEach((o, j) => { if (o.length !== 4 || !o[0] || !o[1] || !o[3]) errs.push(`${sid} r${i} o${j}: malformed`); });
       if (new Set(r.opts.map(o => o[0])).size !== 3) errs.push(`${sid} r${i}: duplicate options`);
+      replyChoices(`${sid} r${i}`, r);
     });
     if (s.builds.length !== 3) errs.push(`${sid}: ${s.builds.length} builds`);
     s.builds.forEach((b, i) => {
@@ -75,6 +93,7 @@ const checkReply = (where, r) => {
   const ok = r.opts.filter(o => o[2] === 1).length; if (ok !== 1) errs.push(`${where}: ${ok} correct`);
   r.opts.forEach((o, j) => { if (o.length !== 4 || !o[0] || !o[1] || !o[3]) errs.push(`${where} o${j}: malformed`); });
   if (new Set(r.opts.map(o => o[0])).size !== 3) errs.push(`${where}: duplicate options`);
+  replyChoices(where, r);
 };
 const checkBuild = (where, b) => {
   const tiles = tok(b.sv).concat((b.extra || []).map(t => t.toLowerCase()));
@@ -102,6 +121,11 @@ for (const [sid, f] of Object.entries(LIFE_FACTS)) {
   lifeCount.facts++;
 }
 counts.life = lifeCount;
+const share = v => Math.round((100 * v) / Math.max(1, mc.n));
+for (const [label, v] of [['always picking the longest reply', mc.longest], ['always picking the shortest reply', mc.shortest], ['ruling out the odd one out', mc.avoidOdd], ['always picking the odd one out', mc.pickOdd]]) {
+  if (v / mc.n > 0.45) errs.push(`multiple choice: ${label} wins ${share(v)}% of reply questions (chance is 33%)`);
+}
+counts.choices = { questions: mc.n, longestWins: share(mc.longest) + '%', shortestWins: share(mc.shortest) + '%', oddOutRuledOut: share(mc.avoidOdd) + '%', oddOutPicked: share(mc.pickOdd) + '%' };
 
 // colour themes: every palette defines every token in both modes, and text stays readable (WCAG contrast)
 const tctx = {}; vm.createContext(tctx);
