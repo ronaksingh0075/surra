@@ -25,13 +25,13 @@ const THEMES = [
   },
   {
     id: 'midnattssol', sv: 'Midnattssol', en: 'Midnight sun',
-    unlock: { hint: 'Unlocks at a 3-day streak', test: s => (s.streak.best || 0) >= 3 },
+    unlock: { hint: 'Unlocks with 3 city stamps', test: s => citiesOf(s) >= 3 || ((s.streak && s.streak.best) || 0) >= 3 }, // or an old 3-day streak
     light: { bg: '#FFF1E8', 'bg-2': '#FBE2D3', surface: '#FFFAF6', 'surface-2': '#FCE9DE', ink: '#2C1B2E', 'ink-2': '#6B5466', 'ink-3': '#A08A98', line: '#F1D6C9', glow: '#F07850', 'glow-2': '#D45A33', 'glow-ink': '#2B0D04', 'glow-soft': '#FCD9CA', falu: '#6B3FA0', sea: '#EFE6EE', land: '#F8DCCB', 'land-edge': '#CC9C83', lake: '#E2D8EA', neighbour: '#F3E5DD', 'aurora-a': '#F7B267', 'aurora-b': '#B48BEA' },
     dark: { bg: '#1B1024', 'bg-2': '#22142D', surface: '#2A1A36', 'surface-2': '#352244', ink: '#FFEFE6', 'ink-2': '#CDB2C4', 'ink-3': '#937A8E', line: '#46304F', glow: '#FF8C66', 'glow-2': '#FFB094', 'glow-ink': '#2B0B02', 'glow-soft': '#4E2733', falu: '#C7A4FF', sea: '#130B1A', land: '#36223F', 'land-edge': '#604468', lake: '#251E44', neighbour: '#1A0F22', 'aurora-a': '#FFB36B', 'aurora-b': '#C7A4FF' },
   },
   {
     id: 'norrsken', sv: 'Norrsken', en: 'Northern lights',
-    unlock: { hint: 'Unlocks at 1,000 XP', test: s => (s.xp || 0) >= 1000 },
+    unlock: { hint: 'Unlocks at 1,000 km', test: s => totalKm(s) >= 1000 || (s.xp || 0) >= 1000 }, // or 1,000 XP from before kilometres
     light: { bg: '#EAF4F2', 'bg-2': '#DCEDEA', surface: '#F8FCFB', 'surface-2': '#E3F1EE', ink: '#10263A', 'ink-2': '#45606B', 'ink-3': '#7B949C', line: '#CDE4DF', glow: '#19A07E', 'glow-2': '#127A60', 'glow-ink': '#03201A', 'glow-soft': '#CDEFE5', falu: '#6A45C9', sea: '#DDEBF0', land: '#E2EFEA', 'land-edge': '#8FB3AA', lake: '#C6E0E6', neighbour: '#E3ECEC', 'aurora-a': '#3FD6A0', 'aurora-b': '#8E6BF0' },
     dark: { bg: '#0A1324', 'bg-2': '#0E1A30', surface: '#12203A', 'surface-2': '#192A48', ink: '#E8F6F4', 'ink-2': '#A3C0C8', 'ink-3': '#6A8794', line: '#233A5A', glow: '#3EE0A8', 'glow-2': '#84F2C9', 'glow-ink': '#03211A', 'glow-soft': '#123F3A', falu: '#B79BFF', sea: '#060D1A', land: '#142640', 'land-edge': '#2F4D73', lake: '#0F2A4A', neighbour: '#0B1527', 'aurora-a': '#3EE0A8', 'aurora-b': '#A58BFF' },
   },

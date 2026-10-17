@@ -35,13 +35,13 @@ function PromptCard({ s, go }) {
   else if (kind === 'join') c = {
     vis: html`<${RaceStack} n=${total || 3} />`, eyebrow: total ? html`<${LiveDot} />${total} on the road` : 'Players map',
     t: total ? `${total === 1 ? 'One learner is' : `${total} learners are`} racing to Kiruna` : 'Be the first on the players map',
-    p: `Join the map to see them, climb the standings and challenge anyone up to two cities away. ${nearLine}`,
+    p: `Join the map to see them, climb the standings, challenge anyone up to two cities away and race players in your city. ${nearLine}`,
     yes: [busy ? 'Joining…' : 'Join the map', () => run(async () => { await joinMap(); toast(`You're on the map in ${STOPS[mapStop(S())].city}`, 'users'); })], id: 'join',
   };
   else if (kind === 'push') c = {
     vis: html`<span class="prompt-i"><${Icon} n="bell" s=${24} /></span>`, eyebrow: 'Challenge alerts',
     t: "Know when you're challenged",
-    p: 'Get a notification when someone challenges you or answers your challenge. Nothing else unless you turn it on.',
+    p: 'Get a notification when someone challenges you, answers your challenge or wants a typing race. Nothing else unless you turn it on.',
     yes: [P.busy ? 'One moment…' : 'Turn on alerts', () => run(async () => {
       const r = await enablePush();
       if (r === 'on') toast('Challenge alerts are on', 'bell');
@@ -67,30 +67,33 @@ function PromptCard({ s, go }) {
   </section>`;
 }
 
-/* ---------- Home: where you stand in the race, and who you could challenge */
-function RivalsCard({ s, go, onChallenge }) {
+/* ---------- Home: where you stand in the race, and who you could challenge or race */
+function RivalsCard({ s, go, onChallenge, onRace }) {
   const a = ACCT.use(), C = COMM.use();
   const ready = a.status === 'ready' && onMap(s);
   useEffect(() => { if (ready && Date.now() - (COMM.get().playersAt || 0) > 5 * 60e3) { refreshPlayers(); refreshChallenges(); } }, [ready]);
   if (!ready) return null;
-  const list = mapPlayers(s, C.players), me = mapIdx(s), at = p => ORDER.indexOf(p.stop);
-  const ranked = list.slice().sort((x, y) => at(y) - at(x) || y.xp - x.xp || (x.me ? -1 : y.me ? 1 : 0));
-  const rank = ranked.findIndex(p => p.me) + 1, ahead = rank > 1 ? ranked[rank - 2] : null;
+  const list = mapPlayers(s, C.players), me = mapIdx(s), at = p => ORDER.indexOf(p.stop), here = mapStop(s);
+  const { ranked, rank, ahead } = standing(list), mine = ranked[rank - 1] || { km: totalKm(s) };
   const rivals = list.filter(p => !p.me && Math.abs(at(p) - me) <= DUEL.range)
-    .sort((x, y) => Math.abs(at(x) - me) - Math.abs(at(y) - me) || (y.seen || 0) - (x.seen || 0)).slice(0, 3);
+    .sort((x, y) => (y.stop === here) - (x.stop === here) || isOnline(y) - isOnline(x) || Math.abs(at(x) - me) - Math.abs(at(y) - me) || (y.seen || 0) - (x.seen || 0)).slice(0, 3);
   const loading = !C.playersAt;
   return html`<section class="card rivals" aria-label="Your place in the race">
     <div class="rivals-head">
-      <div class="tx"><span class="eyebrow"><${LiveDot} />On the road</span>
+      <div class="tx"><span class="eyebrow"><${LiveDot} />On the road · ranked by kilometres</span>
         <b class="display">${loading ? 'Loading the race…' : list.length > 1 ? `You're #${rank} of ${list.length}` : 'Just you so far'}</b>
-        <span>${loading ? '' : ahead ? `${ahead.name} is next ahead, in ${STOPS[ahead.stop].city}.` : list.length > 1 ? 'You lead the race. Hold your ground!' : 'Invite a friend and race them to Kiruna.'}</span></div>
+        <span>${loading ? '' : ahead ? `${ahead.name} is next ahead, ${fmtKm(Math.max(0, ahead.km - mine.km))} in front.` : list.length > 1 ? `You lead the race with ${fmtKm(mine.km)}. Hold your ground!` : 'Invite a friend and race them to Kiruna.'}</span></div>
       <button class="iconbtn" onClick=${() => go({ name: 'players' })} aria-label="Open the players map"><${Icon} n="map" /></button>
     </div>
+    ${isSafe(here) ? html`<p class="rivals-safe"><${Icon} n="shield" s=${15} />You're in a safehouse: no challenges in or out of ${STOPS[here].city}.</p>` : null}
     ${!loading && rivals.length ? html`<div class="plist">${rivals.map(p => {
-      const ch = canChallenge(s, p, C.challenges);
-      return html`<div class="prow"><${Avatar} p=${p} s=${40} />
-        <div class="tx"><b>${p.name}</b><span>${STOPS[p.stop].city} · ${gapText(at(p) - me)}</span>${!ch.ok ? html`<span class="why">${ch.why}</span>` : null}</div>
-        <button class="btn small primary" disabled=${!ch.ok} onClick=${() => onChallenge(p)} aria-label=${`Challenge ${p.name}`}><${Icon} n="swords" s=${16} />Challenge</button></div>`;
+      const ch = canChallenge(s, p, C.challenges), rc = canRace(s, p), stake = stakeFor(here, p.stop);
+      return html`<div class=${cx('prow acts', rc.ok && ch.ok && 'two')}><span class="pav"><${Avatar} p=${p} s=${40} />${isOnline(p) ? html`<span class="ponline" aria-hidden="true"></span>` : null}</span>
+        <div class="tx"><b>${p.name}</b><span>${STOPS[p.stop].city} · ${gapText(at(p) - me)} · ${fmtKm(p.km)}</span>${ch.ok && stake ? html`<span class="stake">${stake} km at stake</span>` : !ch.ok && !rc.ok ? html`<span class="why">${ch.why}</span>` : null}</div>
+        <div class="rowbtns">
+          ${rc.ok ? html`<button class=${cx('btn small', ch.ok ? 'ghost' : 'primary')} onClick=${() => onRace(p)} aria-label=${`Typing race with ${p.name}`}><${Icon} n="flower" s=${16} />Race</button>` : null}
+          ${ch.ok || !rc.ok ? html`<button class="btn small primary" disabled=${!ch.ok} onClick=${() => onChallenge(p)} aria-label=${`Challenge ${p.name}`}><${Icon} n="swords" s=${16} />Challenge</button>` : null}
+        </div></div>`;
     })}</div>` : !loading ? html`<p class="muted rivals-empty">Nobody within two cities of you yet. Finish lessons to catch up with others, or bring a friend along.</p>` : null}
     <div class="rivals-foot"><button class="btn ghost small" onClick=${shareInvite}><${Icon} n="invite" s=${17} />Invite a friend</button>
       <button class="linkbtn" onClick=${() => go({ name: 'players' })}>Players map</button></div>
@@ -158,12 +161,12 @@ function NotifyCard({ go }) {
     <div class="setrow"><div class="tx"><b>This device</b><span>${deviceTxt}</span></div>
       ${canToggle ? (P.here ? html`<button class="btn ghost small" disabled=${P.busy} onClick=${() => act(disablePush)}>Turn off</button>` : html`<button class="btn small primary" disabled=${P.busy} onClick=${on}>${P.busy ? 'One moment…' : 'Turn on'}</button>`) : null}</div>
     ${devices || P.here ? html`
-      <div class="setrow"><div class="tx"><b>Challenges and results</b><span>When someone challenges you, answers your challenge, or a challenge is about to expire.</span></div>
+      <div class="setrow"><div class="tx"><b>Challenges, races and results</b><span>When someone challenges you or invites you to a typing race, answers your challenge, or a challenge is about to expire.</span></div>
         <${Seg} label="Challenges and results" value=${prefs.duels} options=${[{ v: true, l: 'On' }, { v: false, l: 'Off' }]} onChange=${v => act(() => setPushPref('duels', v))} /></div>
-      <div class="setrow"><div class="tx"><b>Practice reminder</b><span>${prefs.streak ? `At ${hourLabel(hour)} on days you haven't practised yet, with a warning when a streak is about to go out.` : 'A nudge at a time you choose on days you haven’t practised.'}</span></div>
+      <div class="setrow"><div class="tx"><b>Practice reminder</b><span>${prefs.streak ? `At ${hourLabel(hour)} on days you haven't practised yet, with how far it is to your next city.` : 'A nudge at a time you choose on days you haven’t practised.'}</span></div>
         <div class="setctl">${prefs.streak ? html`<label class="vh" for="remind-hour">Reminder time</label><select id="remind-hour" class="select" value=${hour} onChange=${e => act(() => setRemindHour(Number(e.target.value)))}>${REMIND_HOURS.map(h => html`<option value=${h} selected=${h === hour}>${hourLabel(h)}</option>`)}</select>` : null}
           <${Seg} label="Practice reminder" value=${prefs.streak} options=${[{ v: false, l: 'Off' }, { v: true, l: 'On' }]} onChange=${v => act(() => setPushPref('streak', v))} /></div></div>
-      <div class="setrow"><div class="tx"><b>Rival alerts</b><span>When someone passes you on the road or joins near you. At most one a day.</span></div>
+      <div class="setrow"><div class="tx"><b>Rival alerts</b><span>When someone overtakes you in kilometres or joins near you. At most one a day.</span></div>
         <${Seg} label="Rival alerts" value=${prefs.rivals} options=${[{ v: false, l: 'Off' }, { v: true, l: 'On' }]} onChange=${v => act(() => setPushPref('rivals', v))} /></div>
       <p class="faint quiet">Alerts wait until morning if they arrive between 22:00 and 08:00, except a reminder at the time you picked.</p>` : null}
     ${err ? html`<span class="err">${err}</span>` : null}`);

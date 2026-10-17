@@ -1,17 +1,21 @@
 rules_version = '2';
 // Surra security rules
 // - users/{uid}: each person reads and writes only their own progress, after confirming their email.
-// - players/{uid}: the opt-in players map. Signed-in players can see it; each person writes only their own entry.
+// - players/{uid}: the opt-in players map. Signed-in players can see it; each person writes only their own entry
+//   (kilometres and cities visited; "xp" carries the kilometres too, for app versions from before kilometres).
 // - challenges/{id}: duels between two players on the map. Only the two players can see a challenge; the challenger
 //   creates it after playing their round, the challenged player answers or declines, and nobody can change a score
-//   after it's written.
+//   after it's written. Nobody can challenge, or be challenged, from a safehouse city.
+// - races/{id}: live typing races between two players in the same city. Only the two players can see a race; the
+//   host creates it, the invited player joins or declines, and during the race each player can only move their
+//   own bee (progress, then a finishing time that can't change).
 // - notify/{uid}: each person's notification settings, push subscriptions (one per device) and the small progress
 //   summary that times reminders. Only its owner can read or write it.
 // - public/{doc}: anonymous counts of players per city, readable by anyone, so guests can see the race.
 // - shared/{doc}: the roster of everyone on the players map in one document (the same details players/ shows),
 //   so the app reads one document instead of one per player.
 // The Surra notifier (Google Apps Script, see notifier/) uses its own Google credentials, which these rules don't
-// cover: it reads notify/ and challenges/, writes public/ and meta/, and marks challenges as notified.
+// cover: it reads notify/, challenges/ and races/, writes public/ and meta/, and marks challenges and race invites as notified.
 service cloud.firestore {
   match /databases/{database}/documents {
     function verified() { return request.auth != null && request.auth.token.email_verified == true; }
@@ -25,6 +29,9 @@ service cloud.firestore {
     function millis(v) { return v is int && v >= 0 && v <= 600000; }
     function onMap(uid) { return exists(/databases/$(database)/documents/players/$(uid)); }
     function hour(v) { return v is int && v >= 0 && v <= 23; }
+    function safehouse(s) { return s in ['malmo', 'goteborg', 'stockholm', 'umea']; }
+    function stopOf(uid) { return get(/databases/$(database)/documents/players/$(uid)).data.stop; }
+    function count(v, max) { return v is int && v >= 0 && v <= max; }
     function validNotify(d) {
       return d.keys().hasOnly(['push', 'subs', 'tz', 'hour', 'slot', 'day', 'streak', 'stop', 'next', 'name', 'ref', 'updatedAt', 'v'])
         && d.push is map && d.push.keys().hasOnly(['duels', 'streak', 'rivals'])
@@ -33,7 +40,7 @@ service cloud.firestore {
         && d.tz is string && d.tz.size() <= 64
         && hour(d.hour) && hour(d.slot)
         && d.day is string && d.day.size() <= 10
-        && d.streak is int && d.streak >= 0
+        && d.get('streak', 0) is int && d.get('streak', 0) >= 0
         && isStop(d.stop)
         && d.next is string && d.next.size() <= 80
         && d.get('name', 'x') is string && d.get('name', 'x').size() <= 24
@@ -54,12 +61,14 @@ service cloud.firestore {
       allow read: if verified();
       allow delete: if request.auth != null && me() == uid;
       allow create, update: if verified() && me() == uid
-        && request.resource.data.keys().hasOnly(['name', 'avatar', 'color', 'stop', 'xp', 'updatedAt', 'v'])
+        && request.resource.data.keys().hasOnly(['name', 'avatar', 'color', 'stop', 'xp', 'km', 'cities', 'updatedAt', 'v'])
         && text(request.resource.data.name, 24)
         && text(request.resource.data.avatar, 16)
         && text(request.resource.data.color, 16)
         && isStop(request.resource.data.stop)
         && request.resource.data.xp is int && request.resource.data.xp >= 0
+        && count(request.resource.data.get('km', 0), 100000)
+        && count(request.resource.data.get('cities', 0), 20)
         && request.resource.data.updatedAt == request.time;
     }
 
@@ -77,7 +86,9 @@ service cloud.firestore {
         && text(nxt().fromName, 24) && text(nxt().toName, 24)
         && text(nxt().fromAvatar, 16) && text(nxt().fromColor, 16) && text(nxt().toAvatar, 16) && text(nxt().toColor, 16)
         && nxt().created == request.time
-        && onMap(me()) && onMap(nxt().to);
+        && onMap(me()) && onMap(nxt().to)
+        && !safehouse(nxt().fromStop) && !safehouse(nxt().toStop)
+        && !safehouse(stopOf(me())) && !safehouse(stopOf(nxt().to));
       // the challenged player plays their round or declines
       allow update: if verified() && cur().to == me() && cur().status == 'pending'
         && nxt().diff(cur()).affectedKeys().hasOnly(['status', 'toScore', 'toMs', 'resolvedAt'])
@@ -87,6 +98,37 @@ service cloud.firestore {
       allow update: if verified() && cur().from == me() && cur().status != 'pending'
         && nxt().diff(cur()).affectedKeys().hasOnly(['fromSeen']) && nxt().fromSeen == true;
       allow delete: if request.auth != null && (cur().from == me() || cur().to == me());
+    }
+
+    match /races/{id} {
+      function cur() { return resource.data; }
+      function nxt() { return request.resource.data; }
+      function only(keys) { return nxt().diff(cur()).affectedKeys().hasOnly(keys); }
+      // a finishing time is set once and never changes. It has to be humanly possible (300 words a minute at most)
+      // and can't be more than 8 seconds earlier than the moment it's written (the race starts 5 s after the join)
+      function finish(t) {
+        return !(t in nxt()) || ((t in cur()) && nxt()[t] == cur()[t])
+          || (!(t in cur()) && count(nxt()[t], 600000) && nxt()[t] >= cur().len * 40
+            && request.time.toMillis() - cur().joined.toMillis() - 5000 <= nxt()[t] + 8000);
+      }
+      allow read: if verified() && (cur().a == me() || cur().b == me());
+      allow create: if verified() && nxt().a == me() && nxt().b is string && nxt().b != me()
+        && nxt().keys().hasOnly(['a', 'b', 'an', 'aa', 'ac', 'bn', 'ba', 'bc', 'stop', 'text', 'len', 'status', 'created', 'v'])
+        && nxt().status == 'open' && nxt().created == request.time
+        && isStop(nxt().stop) && count(nxt().text, 39) && nxt().len is int && nxt().len > 0 && nxt().len <= 600
+        && text(nxt().an, 24) && text(nxt().bn, 24) && text(nxt().aa, 16) && text(nxt().ac, 16) && text(nxt().ba, 16) && text(nxt().bc, 16)
+        && onMap(me()) && onMap(nxt().b)
+        && stopOf(me()) == nxt().stop && stopOf(nxt().b) == nxt().stop;
+      // the invited player joins or declines; the host can take an open invite back
+      allow update: if verified() && cur().b == me() && cur().status == 'open'
+        && ((nxt().status == 'on' && nxt().joined == request.time && only(['status', 'joined'])) || (nxt().status == 'off' && only(['status'])));
+      allow update: if verified() && cur().a == me() && cur().status == 'open' && nxt().status == 'off' && only(['status']);
+      // during the race each player moves only their own bee
+      allow update: if verified() && cur().status == 'on' && cur().a == me() && only(['pa', 'ta'])
+        && count(nxt().get('pa', 0), cur().len) && finish('ta');
+      allow update: if verified() && cur().status == 'on' && cur().b == me() && only(['pb', 'tb'])
+        && count(nxt().get('pb', 0), cur().len) && finish('tb');
+      allow delete: if request.auth != null && (cur().a == me() || cur().b == me());
     }
 
     match /notify/{uid} {

@@ -52,6 +52,10 @@ const ICONS = {
   eyeOff: ['M3 3l18 18', 'M10.6 5.6A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.6 3.4', 'M6.3 6.8C3.9 8.4 2.5 12 2.5 12s3.5 6.5 9.5 6.5a9.3 9.3 0 0 0 4.4-1.1', 'M9.9 9.9a3 3 0 0 0 4.2 4.2'],
   bell: ['M18 9.6a6 6 0 0 0-12 0c0 5-1.9 6.6-2.6 7.2h17.2c-.7-.6-2.6-2.2-2.6-7.2z', 'M10 20.2a2.2 2.2 0 0 0 4 0'],
   invite: [circ(9.5, 8, 3.6), 'M3 20.3c1-3.7 3.5-5.6 6.5-5.6s5.5 1.9 6.5 5.6', 'M18.5 7.5v6M15.5 10.5h6'],
+  road: ['M9 3.5L4 20.5', 'M15 3.5L20 20.5', 'M12 4.5v2.5M12 10.5v3M12 17v3.5'],
+  shield: ['M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.9-4.3-1.6-7.5-5.3-7.5-9.9V6z', 'M8.8 12.2l2.3 2.3 4.2-4.6'],
+  flower: [circ(12, 8.5, 2), circ(12, 4.6, 2), circ(15.6, 7.2, 2), circ(14.2, 11.4, 2), circ(9.8, 11.4, 2), circ(8.4, 7.2, 2), 'M12 13.4V21', 'M12 18c-2.4 0-4-1.4-4.6-3.6 2.4.1 4.1 1.3 4.6 3.6z'],
+  keyboard: ['M3 6.5h18v11H3z', 'M6.5 10h.01M9.5 10h.01M12.5 10h.01M15.5 10h.01M18 10h.01M6.5 13.5h.01M18 13.5h.01', 'M9 14h6'],
 };
 const GLYPHS = {
   tower: ['M9 21V4.5l6-1.5v18', 'M9 8.5l6-1.6M9 12.5l6-1.6M9 16.5l6-1.6', 'M6 21h12'],
@@ -190,7 +194,7 @@ function ContinueCard({ s, startAction, openStop, openRegion }) {
   if (a.type === 'lesson') {
     const st = STOPS[a.sid], L = LEVELS[LEVEL_INDEX[a.sid]];
     return html`<section class="card cont" aria-label="Next stop">
-      <div class="eyebrow">Next stop · ${L.id} ${L.region}</div>
+      <div class="eyebrow">Next stop · ${L.id} ${L.region}${isSafe(a.sid) ? html` · <span class="safe-inline"><${Icon} n="shield" s=${13} />Safehouse</span>` : null}</div>
       <h2 class="display">${st.city}</h2>
       <p class="theme">${st.theme} <span class="muted" style="font-weight:700">· ${st.en}</span></p>
       <div class="lessons-mini">${['learn', 'reply', 'talk'].map(l => html`<span class=${cx('lmini', starsOf(s, a.sid, l) && 'done', l === a.lesson && 'now')}>${starsOf(s, a.sid, l) ? html`<${Icon} n="check" s=${14} w=${3} />` : null}${LESSON_META[l].en}</span>`)}</div>
@@ -276,6 +280,11 @@ function RegionSheet({ li, s, onClose, openStop, start }) {
     </div>
   <//>`;
 }
+function RoadLine({ s, sid }) {
+  const i = ORDER.indexOf(sid), got = ['learn', 'reply', 'talk'].reduce((a, l) => a + lessonKm(sid, l, starsOf(s, sid, l)), 0), total = ROAD_KM[sid];
+  return html`<div class="roadline"><${Icon} n="road" s=${17} /><span>${i > 0 ? `${STOPS[ORDER[i - 1]].city} to ${STOPS[sid].city}` : `Into ${STOPS[sid].city} over the Öresund Bridge`}: <b>${total} km</b>${got ? ` · ${got} covered` : ''}${got >= total ? ' · all of it' : ''}</span>
+    ${isSafe(sid) ? html`<span class="safe-note"><${Icon} n="shield" s=${15} />Safehouse: no challenges in or out here</span>` : null}</div>`;
+}
 function lockReason(s, sid) {
   const li = LEVEL_INDEX[sid];
   if (!levelUnlocked(s, li)) return `Pass the ${LEVELS[li - 1].id} checkpoint to unlock ${LEVELS[li].region}.`;
@@ -299,11 +308,12 @@ function StopSheet({ sid, s, onClose, start }) {
       <div style="min-width:0">
         <div class="eyebrow">${L.id} · ${L.region}</div>
         <h2>${st.city}</h2>
-        <div class="tags"><span class="chip falu">${REG_EN[st.reg]}</span><span class="chip">${st.theme}</span></div>
+        <div class="tags"><span class="chip falu">${REG_EN[st.reg]}</span><span class="chip">${st.theme}</span>${isSafe(sid) ? html`<span class="chip safe"><${Icon} n="shield" s=${14} />Safehouse</span>` : null}</div>
       </div>
       <button class="iconbtn close" onClick=${onClose} aria-label="Close"><${Icon} n="close" /></button>
     </div>
     <p style="margin-top:14px"><b>${st.en}.</b> ${st.intro}</p>
+    <${RoadLine} s=${s} sid=${sid} />
     ${open ? html`<div class="section"><span class="eyebrow">Lessons</span>
         ${['learn', 'reply', 'talk'].map(l => html`<button class=${cx('lessonrow', nextL === l && 'next')} onClick=${() => start({ type: 'lesson', sid, lesson: l })}>
           <span class="li"><${Icon} n=${LESSON_META[l].icon} /></span>
@@ -315,6 +325,11 @@ function StopSheet({ sid, s, onClose, start }) {
           <span class="tx"><b>${LIFE[sid].en} <span class="faint" style="font-weight:700">· Life science</span></b><span>${LIFE[sid].intro}</span></span>
           <${Stars} n=${starsOf(s, sid, 'life')} />
         </button>` : null}
+        <button class="lessonrow" onClick=${() => start({ type: 'lesson', sid, lesson: 'type' })}>
+          <span class="li"><${Icon} n="keyboard" /></span>
+          <span class="tx"><b>Typing <span class="faint" style="font-weight:700">· Skriv</span></b><span>Type the ${st.city} key phrases, with help for å, ä, ö and é. Practice: earns detour kilometres.</span></span>
+          <${Stars} n=${starsOf(s, sid, 'type')} />
+        </button>
         ${env.ai === 'ready' ? html`<button class="lessonrow" onClick=${() => start({ type: 'generate', sid })}>
           <span class="li"><${Icon} n="sparkle" /></span>
           <span class="tx"><b>Fresh situations</b><span>Claude writes 6 new reply drills on this theme</span></span>
@@ -362,6 +377,7 @@ function CardQ({ q, s }) {
       <div style="margin-top:12px;display:flex;justify-content:center"><${SayBtn} text=${sv} /></div>
       ${en ? html`<div class="en">${enT}</div>` : html`<button class="reveal" onClick=${() => setEn(true)}>Show the meaning</button>`}
       ${note ? html`<div class="note"><${Icon} n="bulb" s=${18} /><span>${note}</span></div>` : null}
+      <${SpokenLine} sv=${sv} />
     </div>`;
 }
 function SceneQ({ q, s }) {
@@ -478,6 +494,7 @@ function Feedback({ q, fb, sel }) {
     return html`${title(fb.ok, rnd(PRAISE), 'Not quite')}
       <div class="fb-scroll">
         ${fb.ok ? html`<div class="fb-text">${best.note}</div>` : html`<div class="fb-text">${chosen ? chosen.note : ''}</div><div class="fb-text" style="display:flex;gap:8px;align-items:center"><span style="flex:1">Better: <span class="sv">${best.sv}</span> <span class="muted">· ${best.en}</span></span><${SayBtn} text=${best.sv} small /></div>`}
+        <${SpokenLine} sv=${best.sv} />
         <details><summary style="cursor:pointer;font-weight:800;font-size:14px">All three replies, translated</summary>
           <div class="altlist">${q.opts.map(o => html`<div class=${cx('alt', o.ok && 'best')}><b>${o.sv}</b><div class="en">${o.en}</div><div>${o.note}</div></div>`)}</div></details>
       </div>`;
@@ -493,11 +510,29 @@ function Feedback({ q, fb, sel }) {
       <div class="fb-text" style="display:flex;gap:8px;align-items:center"><span class="sv" style="flex:1">${full}</span><${SayBtn} text=${full} small /></div>
       <div class="fb-text">${q.why}</div>`;
   }
+  if (q.kind === 'type') {
+    const r = fb.type || {};
+    return html`${title(fb.ok, rnd(PRAISE), r.skipped ? 'Skipped' : 'A few slips')}
+      <div class="fb-scroll">
+        <div class="fb-text" style="display:flex;gap:8px;align-items:center"><span style="flex:1"><span class="sv">${q.shown}</span> <span class="muted">· ${q.en}</span></span><${SayBtn} text=${q.sv} small /></div>
+        ${r.skipped ? null : html`<div class="fb-text">${raceSecs(r.ms)} · ${r.wpm} wpm · ${r.errs ? `${r.errs} slip${r.errs === 1 ? '' : 's'}` : 'no slips'}</div>`}
+        <${SpokenLine} sv=${q.shown} />
+      </div>`;
+  }
   if (q.kind === 'quiz') {
     return html`${title(fb.ok, rnd(PRAISE), 'Not quite')}
       <div class="fb-text" style="display:flex;gap:8px;align-items:center"><span style="flex:1"><span class="sv">${q.pair[0]}</span> <span class="muted">· ${q.pair[1]}</span></span><${SayBtn} text=${q.pair[0]} small /></div>`;
   }
   return null;
+}
+function KmNote({ result, lesson }) {
+  const s = useApp();
+  if (result.kmKind === 'road') {
+    if (!lesson.sid || !['learn', 'reply', 'guided'].includes(lesson.type)) return null;
+    const sid = lesson.sid, i = ORDER.indexOf(sid), got = ['learn', 'reply', 'talk'].reduce((a, l) => a + lessonKm(sid, l, starsOf(s, sid, l)), 0);
+    return html`<p class="kmnote"><${Icon} n="road" s=${16} /><span>${i > 0 ? `${STOPS[ORDER[i - 1]].city} to ${STOPS[sid].city}` : `The road into ${STOPS[sid].city}`}: ${got} of ${ROAD_KM[sid]} km covered</span></p>`;
+  }
+  return html`<p class="kmnote faint">${result.capped ? `Practice detours stop at ${KM.detourCap} km a day. Lessons still cover new road.` : `A detour: practice adds up to ${KM.detourCap} km a day.`}</p>`;
 }
 function Results({ lesson, result, onExit, onNext }) {
   const st = lesson.sid ? STOPS[lesson.sid] : null;
@@ -509,7 +544,8 @@ function Results({ lesson, result, onExit, onNext }) {
     <h2>${title}</h2>
     ${isCp ? html`<p class="muted" style="max-width:40ch">${result.correct} of ${result.total} right. ${result.passed ? (nx ? `${nx.region} is now open.` : 'You have finished the journey!') : `You need ${lesson.pass}. Go through the stops again and retake it whenever you like.`}</p>` : null}
     ${lesson.type === 'review' && lesson.fromMistakes ? html`<p class="muted">Items answered correctly leave your review pile.</p>` : null}
-    <div class="resgrid"><div><b>+${result.xp}</b><span>XP</span></div><div><b>${Math.round(result.acc * 100)}%</b><span>Accuracy</span></div><div><b>${result.bestCombo}</b><span>Best combo</span></div></div>
+    <div class="resgrid"><div><b>+${result.km}</b><span>${result.kmKind === 'road' ? 'km of road' : 'km detour'}</span></div><div><b>${Math.round(result.acc * 100)}%</b><span>Accuracy</span></div>${lesson.type === 'type' ? html`<div><b>${result.wpm || '–'}</b><span>wpm</span></div>` : html`<div><b>${result.bestCombo}</b><span>Best combo</span></div>`}</div>
+    <${KmNote} result=${result} lesson=${lesson} />
     ${result.newStamp && st ? html`<div style="display:grid;justify-items:center;gap:10px;margin-top:4px">
       <div class="stamp on slam" style="width:124px"><div class="in"><${Glyph} n=${st.glyph} s=${34} /><span class="nm">${st.city}</span><span class="lv">${st.level}</span></div></div>
       <b>New stamp in your passport</b></div>` : null}
@@ -529,7 +565,7 @@ function Player({ lesson, onExit, onNext }) {
   const [combo, setCombo] = useState(0);
   const [result, setResult] = useState(null);
   const [askExit, setAskExit] = useState(false);
-  const stat = useRef({ correctFirst: 0, total: 0, xp: 0, combo: 0, bestCombo: 0, missed: [], fixed: [], seen: {}, requeued: {}, ownGood: 0 });
+  const stat = useRef({ correctFirst: 0, total: 0, combo: 0, bestCombo: 0, missed: [], fixed: [], seen: {}, requeued: {}, ownGood: 0, tChars: 0, tMs: 0 });
   const contRef = useRef(null), bodyRef = useRef(null);
   const q = queue[idx];
   useBodyLock(true);
@@ -539,9 +575,10 @@ function Player({ lesson, onExit, onNext }) {
     st.seen[q.uid] = true;
     if (first) {
       st.total += 1;
-      if (ok) { st.correctFirst += 1; st.combo += 1; st.bestCombo = Math.max(st.bestCombo, st.combo); st.xp += 10 + Math.min(st.combo - 1, 5) * 2 + (extra.bonus || 0); }
+      if (ok) { st.correctFirst += 1; st.combo += 1; st.bestCombo = Math.max(st.bestCombo, st.combo); }
       else { st.combo = 0; if (q.key && lesson.type !== 'review') st.missed.push(q.key); }
-    } else if (ok) st.xp += 4;
+    }
+    if (extra.type && !extra.type.skipped) { st.tChars += q.sv.length; st.tMs += extra.type.ms || 0; }
     if (ok && lesson.type === 'review' && q.key) st.fixed.push(q.key);
     if (extra.ownGood) st.ownGood += 1;
     if (!ok && lesson.requeue !== false && !st.requeued[q.uid] && q.kind !== 'match') {
@@ -553,7 +590,8 @@ function Player({ lesson, onExit, onNext }) {
   const finish = () => {
     const st = stat.current;
     const r = completeLesson(lesson, st);
-    setResult({ ...r, bestCombo: st.bestCombo, total: st.total, correct: st.correctFirst });
+    setResult({ ...r, bestCombo: st.bestCombo, total: st.total, correct: st.correctFirst, wpm: st.tMs ? wpmOf(st.tChars, st.tMs) : 0 });
+    if (st.tMs) update(x => { x.stats.bestWpm = Math.max(x.stats.bestWpm || 0, wpmOf(st.tChars, st.tMs)); });
     setPhase('done'); sfx(r.passed === false ? 'bad' : 'done');
     if (r.levelUp != null) setTimeout(() => CELEBRATE.set({ li: r.levelUp }), 1100);
   };
@@ -588,11 +626,13 @@ function Player({ lesson, onExit, onNext }) {
     : q.kind === 'build' ? html`<${BuildQ} ...${props} />`
     : q.kind === 'gap' ? html`<${GapQ} ...${props} />`
     : q.kind === 'quiz' ? html`<${QuizQ} ...${props} />`
-    : q.kind === 'match' ? html`<${MatchQ} key=${q.uid} ...${props} />` : null;
+    : q.kind === 'match' ? html`<${MatchQ} key=${q.uid} ...${props} />`
+    : q.kind === 'type' ? html`<${TypeQ} key=${q.uid} ...${props} />` : null;
   let foot = null;
   if (phase === 'feedback' && fb) foot = html`<div class=${cx('room-foot', fb.ok ? 'ok' : 'bad')} role="status"><div class="inner"><${Feedback} q=${q} fb=${fb} sel=${sel} /><button ref=${contRef} class=${cx('btn wide', fb.ok ? 'good' : 'bad')} onClick=${next}>Continue</button></div></div>`;
   else if (phase === 'answer' && q && (q.kind === 'card' || q.kind === 'scene')) foot = html`<div class="room-foot"><div class="inner"><button class="btn primary wide" onClick=${next}>${q.kind === 'scene' ? 'Start' : 'Next'}</button></div></div>`;
   else if (phase === 'answer' && q && q.kind === 'match') foot = html`<div class="room-foot"><div class="inner"><p class="muted" style="text-align:center;font-weight:700">Tap a Swedish phrase, then its meaning.</p></div></div>`;
+  else if (phase === 'answer' && q && q.kind === 'type') foot = html`<div class="room-foot"><div class="inner"><button class="btn ghost wide" onClick=${() => check(false, { type: { skipped: true } })}>${q.mode === 'hear' ? 'Show me the text' : 'Skip this one'}</button></div></div>`;
   else if (phase === 'answer' && q && sel !== 'own') foot = html`<div class="room-foot"><div class="inner"><button class="btn primary wide" disabled=${!canCheck(q, sel)} onClick=${doCheck}>Check</button></div></div>`;
   return html`<div class="room" role="dialog" aria-modal="true" aria-label=${lesson.title}>
     <div class="room-top">
@@ -675,17 +715,15 @@ function Talk({ sid, onExit, onNext, onRestart, onGuided }) {
       const raw = await SAMPLE.json(scorePrompt(stop, v, transcript), { modelTier: 'default', cache: false });
       const sc = normScore(raw);
       if (!sc) throw { code: 'invalid_json' };
-      const xp = 30 + sc.stars * 10 + Math.min(mine, 8) * 2;
-      const newFacts = recordTalk(sid, sc.stars, xp);
-      setCard({ ...sc, xp, newFacts }); sfx('done');
+      const r = recordTalk(sid, sc.stars, mine);
+      setCard({ ...sc, km: r.km, kmKind: r.kmKind, newFacts: r.newFacts }); sfx('done');
     } catch (e) { setErr(aiErrorText(e)); }
     finally { setScoring(false); }
   };
   const saveWithout = () => {
     const stars = Math.max(1, Math.min(3, Math.round((goals.length / v.goals.length) * 3)));
-    const xp = 25 + stars * 8;
-    const newFacts = recordTalk(sid, stars, xp);
-    setCard({ stars, score: null, summary: `You completed ${goals.length} of ${v.goals.length} goals in this conversation.`, went_well: [], fixes: [], phrases: [], xp, newFacts });
+    const r = recordTalk(sid, stars, mine);
+    setCard({ stars, score: null, summary: `You completed ${goals.length} of ${v.goals.length} goals in this conversation.`, went_well: [], fixes: [], phrases: [], km: r.km, kmKind: r.kmKind, newFacts: r.newFacts });
   };
   const insert = p => { setText(t => (t.trim() ? t.trimEnd() + ' ' : '') + p.replace(/…$/, ' ')); if (taRef.current) taRef.current.focus(); };
 
@@ -707,7 +745,7 @@ function Talk({ sid, onExit, onNext, onRestart, onGuided }) {
           <h2>${card.stars === 3 ? 'Strålande!' : card.stars === 2 ? 'Bra samtal!' : 'Bra början!'}</h2>
           ${card.summary ? html`<p class="muted" style="max-width:52ch">${card.summary}</p>` : null}
         </div>
-        <div class="resgrid" style="justify-self:center"><div><b>+${card.xp}</b><span>XP</span></div><div><b>${card.score == null ? '–' : card.score}</b><span>Score</span></div><div><b>${goals.length}/${v.goals.length}</b><span>Goals</span></div></div>
+        <div class="resgrid" style="justify-self:center"><div><b>+${card.km}</b><span>${card.kmKind === 'road' ? 'km of road' : 'km detour'}</span></div><div><b>${card.score == null ? '–' : card.score}</b><span>Score</span></div><div><b>${goals.length}/${v.goals.length}</b><span>Goals</span></div></div>
         <div style="justify-self:center;width:100%;display:grid;justify-items:center"><${NewFacts} sid=${sid} list=${card.newFacts} /></div>
         ${card.went_well.length ? html`<div class="scorecard"><span class="eyebrow">What worked</span><ul>${card.went_well.map(w => html`<li>${w}</li>`)}</ul></div>` : null}
         ${card.fixes.length ? html`<div class="scorecard"><span class="eyebrow">Polish these</span>${card.fixes.map(f => html`<div class="fixrow">${f.you ? html`<span class="you">${f.you}</span>` : null}<span class="better" style="display:flex;gap:8px;align-items:center"><span style="flex:1">${f.better}</span><${SayBtn} text=${f.better} small /></span>${f.why ? html`<span class="muted" style="font-size:14px">${f.why}</span>` : null}</div>`)}</div>` : null}
@@ -814,8 +852,9 @@ function Quick({ onExit }) {
   };
   const end = () => {
     const n = sc.current; let best = 0;
-    update(st => { best = st.stats.quickBest || 0; st.stats.quickBest = Math.max(best, n); if (n > 0) awardXP(st, n * 3); });
-    setRes({ score: n, best: Math.max(best, n), record: n > best && n > 0, xp: n * 3 }); setPhase('over'); sfx('done');
+    let km = 0;
+    update(st => { best = st.stats.quickBest || 0; st.stats.quickBest = Math.max(best, n); km = addDetour(st, n); });
+    setRes({ score: n, best: Math.max(best, n), record: n > best && n > 0, km, capped: km < n }); setPhase('over'); sfx('done');
   };
   const start = () => { sc.current = 0; setScore(0); setLeft(60); setRes(null); setPhase('play'); nextQ(); };
   useEffect(() => {
@@ -848,7 +887,8 @@ function Quick({ onExit }) {
       : phase === 'over' && res ? html`<div class="results">
           <div class="eyebrow">${res.record ? 'New personal best!' : 'Time!'}</div>
           <h2 class="num">${res.score} right</h2>
-          <div class="resgrid"><div><b>+${res.xp}</b><span>XP</span></div><div><b>${res.best}</b><span>Best</span></div><div><b>60s</b><span>Time</span></div></div>
+          <div class="resgrid"><div><b>+${res.km}</b><span>km detour</span></div><div><b>${res.best}</b><span>Best</span></div><div><b>60s</b><span>Time</span></div></div>
+          ${res.capped ? html`<p class="faint" style="font-size:13px">Practice detours stop at ${KM.detourCap} km a day. Lessons still cover new road.</p>` : null}
           <div class="actions"><button class="btn primary wide" onClick=${start}>Play again</button><button class="btn ghost wide" onClick=${onExit}>Done</button></div>
         </div>`
       : q ? html`<div key=${q.uid}>
@@ -861,40 +901,35 @@ function Quick({ onExit }) {
 }
 
 /* ---------- passport (stamps, badges, stats) */
-function Candles({ s, big }) {
-  const days = weekDays(), hts = [24, 30, 36, 42, 36, 30, 24].map(h => (big ? h * 1.4 : h));
-  const lbl = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  return html`<div style="display:grid;justify-items:center;gap:6px" role="img" aria-label=${`Practised ${days.filter(d => s.log[d]).length} of 7 days this week`}>
-    <div class="candles">${days.map((d, i) => html`<div class=${cx('c', s.log[d] > 0 && 'on')}><span class="flame"></span><span class="stick" style=${`height:${hts[i]}px`}></span><span class="d faint" style="font-size:10px;font-weight:900;margin-top:4px">${lbl[i]}</span></div>`)}</div>
-  </div>`;
+function WeekKm({ s }) {
+  const days = weekDays(), t = today(), mx = Math.max(10, ...days.map(d => s.log[d] || 0));
+  return html`<div class="week" aria-label="Kilometres per day this week">${days.map((d, i) => { const v = s.log[d] || 0; return html`<div class="col"><span class="v">${v || ''}</span><span class=${cx('bar', v > 0 && 'on', d === t && 'today')} style=${`height:${Math.max(4, (v / mx) * 84)}px`}></span><span class="d">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</span></div>`; })}</div>`;
 }
 const badgeList = () => ACH.filter(a => a.id !== 'duel1' || commOn()); // the duel badge only where the players map exists
 function Pass({ go, embedded }) {
   const s = useApp();
-  const days = weekDays();
-  const mx = Math.max(s.goal, ...days.map(d => s.log[d] || 0));
   const acc = s.stats.answers ? Math.round((100 * s.stats.correct) / s.stats.answers) : 0;
-  const stamps = ORDER.filter(sid => stopDone(s, sid)).length;
-  const t = today();
+  const stamps = citiesOf(s), km = totalKm(s), week = weekKm(s), leg = legOf(s);
   return html`<div class=${embedded ? '' : 'wrap'}>
     ${embedded ? html`<h1 class="pagetitle display">Your passport</h1>` : html`<div class="page-head"><button class="iconbtn" onClick=${() => go({ name: 'home' })} aria-label="Back"><${Icon} n="arrowL" /></button><h1>Your passport</h1></div>`}
     <div class="grid2">
       <section class="card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-          <div><span class="eyebrow">This week</span><p style="font-size:22px;font-weight:900;margin-top:4px" class="num">${liveStreak(s)}-day streak</p><p class="muted" style="font-size:14px">Best: ${s.streak.best || 0} ${(s.streak.best || 0) === 1 ? 'day' : 'days'}. Light all seven candles in a week.</p></div>
-          <${Candles} s=${s} />
+          <div><span class="eyebrow">This week</span><p style="font-size:22px;font-weight:900;margin-top:4px" class="num">${fmtKm(week)}</p><p class="muted" style="font-size:14px">${leg.left ? `${leg.left} km of road left into ${STOPS[leg.sid].city}.` : `${STOPS[leg.sid].city} reached.`} Practice adds up to ${KM.detourCap} km of detours a day.</p></div>
+          <span class="roadbadge" aria-hidden="true"><${Icon} n="road" s=${30} /></span>
         </div>
-        <div class="week" aria-label="XP per day this week">${days.map((d, i) => { const v = s.log[d] || 0; return html`<div class="col"><span class="v">${v || ''}</span><span class=${cx('bar', v > 0 && 'on', d === t && 'today')} style=${`height:${Math.max(4, (v / mx) * 84)}px`}></span><span class="d">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</span></div>`; })}</div>
-        <p class="faint" style="font-size:12.5px;margin-top:8px">Daily goal: ${s.goal} XP</p>
+        <${WeekKm} s=${s} />
       </section>
       <section class="card">
         <span class="eyebrow">Totals</span>
         <div class="statgrid" style="margin-top:10px">
-          <div class="statbox"><b>${fmtN(s.xp)}</b><span>XP earned</span></div>
+          <div class="statbox"><b>${fmtN(km)}</b><span>Kilometres</span></div>
+          <div class="statbox"><b>${stamps}/20</b><span>Cities visited</span></div>
           <div class="statbox"><b>${acc}%</b><span>First-try accuracy</span></div>
           <div class="statbox"><b>${s.stats.talks}</b><span>Conversations</span></div>
           <div class="statbox"><b>${s.stats.bestCombo}</b><span>Best combo</span></div>
           <div class="statbox"><b>${s.stats.quickBest}</b><span>Snabbsvar best</span></div>
+          <div class="statbox"><b>${s.stats.bestWpm || 0}</b><span>Best typing wpm</span></div>
           <div class="statbox"><b>${Object.keys(s.mistakes).length}</b><span>Items to review</span></div>
         </div>
       </section>
@@ -956,8 +991,6 @@ function Settings({ go, embedded }) {
         <${Seg} label="Light or dark" value=${s.settings.mode || 'auto'} options=${[{ v: 'auto', l: 'Auto' }, { v: 'light', l: 'Light' }, { v: 'dark', l: 'Dark' }]} onChange=${v => set(x => { x.settings.mode = v; })} /></div>
     </section>
     <section class="card">
-      <div class="setrow"><div class="tx"><b>Daily goal</b><span>XP to earn each day. A lesson earns roughly 50–200 XP, depending on accuracy.</span></div>
-        <${Seg} label="Daily goal" value=${s.goal} options=${GOALS.map(g => ({ v: g.v, l: `${g.sv} ${g.v}` }))} onChange=${v => set(x => { x.goal = v; })} /></div>
       <div class="setrow"><div class="tx"><b>Starting level</b><span>Levels up to this one are open. Higher levels unlock through checkpoints.</span></div>
         <${Seg} label="Starting level" value=${s.start} options=${LEVEL_IDS.map(id => ({ v: id, l: id }))} onChange=${v => set(x => { x.start = v; })} /></div>
       <div class="setrow"><div class="tx"><b>Your field</b><span>${WORK_HELP[s.settings.work] || WORK_HELP.mix}</span></div>
@@ -966,6 +999,10 @@ function Settings({ go, embedded }) {
         <${Seg} label="English translations" value=${s.settings.translations} options=${[{ v: 'show', l: 'Show' }, { v: 'tap', l: 'Tap to reveal' }]} onChange=${v => set(x => { x.settings.translations = v; })} /></div>
       <div class="setrow"><div class="tx"><b>Speech speed</b><span>${env.tts ? 'Uses a Swedish voice on your device. Tap a speaker twice to hear it slower.' : "No Swedish voice was found on this device. Add one in your system's speech settings to hear audio."}</span></div>
         <${Seg} label="Speech speed" value=${s.settings.rate} options=${[{ v: 'normal', l: 'Normal' }, { v: 'slow', l: 'Slow' }]} onChange=${v => set(x => { x.settings.rate = v; })} /></div>
+      <div class="setrow"><div class="tx"><b>Letter help when typing</b><span>${letterEasy(s) ? 'Easy: a, o and e count for å, ä, ö and é, and capitals are forgiven. The å, ä, ö drill always asks for the real letters.' : 'Exact: type å, ä, ö and é (the keys under the typing box help).'}</span></div>
+        <${Seg} label="Letter help when typing" value=${letterEasy(s) ? 'easy' : 'exact'} options=${[{ v: 'easy', l: 'Easy' }, { v: 'exact', l: 'Exact' }]} onChange=${v => set(x => { x.settings.letters = v; })} /></div>
+      <div class="setrow"><div class="tx"><b>Spoken Swedish</b><span>Show how phrases sound in everyday speech (“Ja vet inte va de e”), with tips on what Swedes really say.</span></div>
+        <${Seg} label="Spoken Swedish" value=${spokenOn(s)} options=${[{ v: true, l: 'On' }, { v: false, l: 'Off' }]} onChange=${v => set(x => { x.settings.spoken = v; })} /></div>
       <div class="setrow"><div class="tx"><b>Sound effects</b><span>Chimes for right and wrong answers.</span></div>
         <${Seg} label="Sound effects" value=${s.settings.sound} options=${[{ v: true, l: 'On' }, { v: false, l: 'Off' }]} onChange=${v => set(x => { x.settings.sound = v; })} /></div>
     </section>
@@ -976,9 +1013,9 @@ function Settings({ go, embedded }) {
       <${InstallRow} />
       <div class="setrow"><div class="tx"><b>Conversations with Claude</b><span>${env.ai === 'ready' ? 'Available. Role-plays and feedback use your own Claude account; you\'ll be asked to allow it the first time.' : env.ai === 'checking' ? 'Checking…' : BUILD === 'pwa' ? 'Live role-plays run in the claude.ai version of Surra. Here, conversations use the guided version.' : 'Not available on this page, so conversations use the guided version.'}</span></div></div>
       <div class="setrow"><div class="tx"><b>Your progress</b><span>${env.sync === 'account' ? 'Saved to your Claude account, so it follows you across devices.' : env.sync === 'cloud' ? 'Backed up to your Surra account, so it follows you across devices.' : 'Saved on this device only.'}</span></div></div>
-      <div class="setrow"><div class="tx"><b>Start over</b><span>Erase XP, stars, stamps and streaks.</span></div><button class="btn ghost small" onClick=${() => setReset(true)}>Reset progress</button></div>
+      <div class="setrow"><div class="tx"><b>Start over</b><span>Erase kilometres, stars, stamps and badges.</span></div><button class="btn ghost small" onClick=${() => setReset(true)}>Reset progress</button></div>
     </section>
-    ${reset ? html`<${Confirm} title="Erase all progress?" text="This deletes your XP, stars, stamps, badges and streak. It can't be undone." yes="Erase" no="Cancel" danger onYes=${() => { setReset(false); update(x => { const f = freshState(); f.owner = x.owner; f.profile = x.profile; Object.keys(x).forEach(k => delete x[k]); Object.assign(x, f); }); go({ name: 'onboard' }); }} onNo=${() => setReset(false)} />` : null}
+    ${reset ? html`<${Confirm} title="Erase all progress?" text="This deletes your kilometres, stars, stamps and badges. It can't be undone." yes="Erase" no="Cancel" danger onYes=${() => { setReset(false); update(x => { const f = freshState(); f.owner = x.owner; f.profile = x.profile; Object.keys(x).forEach(k => delete x[k]); Object.assign(x, f); }); go({ name: 'onboard' }); }} onNo=${() => setReset(false)} />` : null}
   </div>`;
 }
 
@@ -986,7 +1023,6 @@ function Settings({ go, embedded }) {
 function Onboarding({ done, go }) {
   const s = useApp();
   const [start, setStart] = useState(s.start || 'A2');
-  const [goal, setGoal] = useState(s.goal || 60);
   const [work, setWork] = useState(s.settings.work || 'mix');
   const preview = useMemo(() => withDefaults({ ...freshState(), start }), [start]);
   const startOpts = [
@@ -1006,16 +1042,15 @@ function Onboarding({ done, go }) {
       <div class="card"><span class="eyebrow">Where should your journey start?</span>
         <div class="choice" style="margin-top:10px">${startOpts.map(o => html`<button aria-pressed=${String(start === o.v)} onClick=${() => setStart(o.v)}><span class="lvl" style="width:44px;height:44px">${o.v}</span><span class="tx"><b>${o.b}</b><span>${o.t}</span></span></button>`)}</div>
       </div>
-      <div class="card"><span class="eyebrow">Daily goal</span>
-        <div style="margin-top:10px"><${Seg} label="Daily goal" value=${goal} options=${GOALS.slice(0, 3).map(g => ({ v: g.v, l: `${g.sv} · ${g.v} XP` }))} onChange=${setGoal} /></div>
-        <p class="muted" style="font-size:13.5px;margin-top:8px">“Lagom” is about one lesson a day.</p>
+      <div class="card"><span class="eyebrow">How the race works</span>
+        <p class="muted" style="font-size:14px;margin-top:8px">Every lesson covers real road between cities, from 30 km into Malmö to 360 km into Umeå. The players race is ranked by kilometres.</p>
         <span class="eyebrow" style="display:block;margin-top:18px">Your field</span>
         <div style="margin-top:10px"><${Seg} label="Your field" value=${work} options=${[{ v: 'mix', l: 'Mix' }, { v: 'general', l: 'Office' }, { v: 'life', l: 'Life sciences' }]} onChange=${setWork} /></div>
         <p class="muted" style="font-size:13.5px;margin-top:8px">${WORK_HELP[work]}</p>
       </div>
     </div>
     <div class="mapcard onb-map" aria-hidden="true"><${ZoomMap} s=${preview} interactive=${false} /></div>
-    <button class="btn primary wide" style="max-width:420px;justify-self:center" onClick=${() => { update(x => { x.onboarded = true; x.start = start; x.goal = goal; x.settings.work = work; x.settings.news = NEWS.id; }); done(); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } }}>Start my journey<${Icon} n="arrowR" s=${20} /></button>
+    <button class="btn primary wide" style="max-width:420px;justify-self:center" onClick=${() => { update(x => { x.onboarded = true; x.start = start; x.settings.work = work; x.settings.news = NEWS.id; }); done(); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } }}>Start my journey<${Icon} n="arrowR" s=${20} /></button>
   </div></div>`;
 }
 

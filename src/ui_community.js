@@ -18,7 +18,7 @@ function PlayersMap({ s, go, openPlayers }) {
   useEffect(() => { if (guest) loadRace(); }, [guest]);
   const joined = onMap(s);
   // people without a confirmed profile see the race too, as anonymous bees: names and challenges come with a profile
-  const list = ready ? mapPlayers(s, C.players) : guest ? [...anonPlayers(R.counts), { uid: 'me', name: profileName(s), avatar: s.profile.avatar, color: s.profile.color, stop: currentStop(s), xp: s.xp, me: true, anon: true }] : [];
+  const list = ready ? mapPlayers(s, C.players) : guest ? [...anonPlayers(R.counts), { uid: 'me', name: profileName(s), avatar: s.profile.avatar, color: s.profile.color, stop: currentStop(s), km: totalKm(s), me: true, anon: true }] : [];
   const others = list.filter(p => !p.me), near = others.filter(p => Math.abs(ORDER.indexOf(p.stop) - mapIdx(s)) <= DUEL.range).length;
   const join = async () => {
     setBusy(true); setErr(null);
@@ -46,7 +46,7 @@ function PlayersMap({ s, go, openPlayers }) {
       <b>Get a ping when you're challenged</b><span>A notification when someone challenges you or answers yours. Nothing else unless you turn it on.</span>
       <div class="row"><button class="btn primary small" disabled=${P.busy} onClick=${askOn}><${Icon} n="bell" s=${16} />Turn on alerts</button><button class="linkbtn" onClick=${() => snooze('push')}>Not now</button></div>
     </div>` : null}
-    ${joined && s.community.setback ? html`<div class="psetback"><${Icon} n="swords" s=${15} /><span>You're ${s.community.setback === 1 ? 'one city' : `${s.community.setback} cities`} behind your journey after a lost challenge. Each lesson you finish moves you forward again.</span></div>` : null}
+    ${joined && isSafe(mapStop(s)) ? html`<div class="psetback psafe"><${Icon} n="shield" s=${15} /><span>You're in a safehouse: nobody can challenge you in ${STOPS[mapStop(s)].city}, and you can send challenges again once you move on. Friendly typing races still work.</span></div>` : null}
     ${card ? html`<div class="pjoin" role="region" aria-label=${card.t}>
       <b>${card.t}</b><span>${card.p}</span>${err ? html`<span class="err">${err}</span>` : null}
       ${card.b ? html`<button class="btn primary small" disabled=${busy} onClick=${card.b[1]}>${card.b[0]}</button>` : null}
@@ -55,24 +55,30 @@ function PlayersMap({ s, go, openPlayers }) {
 }
 
 /* ---------- who's in a city */
-function PlayersSheet({ sid, players, onClose, onChallenge }) {
+const seenText = p => (p.me ? null : isOnline(p) ? 'online now' : p.seen ? `active ${daysAgo(p.seen)}` : null);
+function PlayersSheet({ sid, players, onClose, onChallenge, onRace }) {
   const s = useApp(), C = COMM.use(), L = LEVELS[LEVEL_INDEX[sid]];
   if (players.length && players[0].anon) return html`<${Sheet} onClose=${onClose} label=${`Learners in ${STOPS[sid].city}`}><${GuestCity} sid=${sid} n=${players.filter(p => !p.me).length} onClose=${onClose} /><//>`;
-  const list = players.slice().sort((a, b) => (b.me ? 1 : 0) - (a.me ? 1 : 0) || b.xp - a.xp);
+  const list = players.slice().sort(byKm), here = mapStop(s) === sid;
   return html`<${Sheet} onClose=${onClose} label=${`Players in ${STOPS[sid].city}`}>
     <div class="sheet-head">
-      <span class="signbadge pl"><${Icon} n="users" s=${22} /></span>
-      <div style="min-width:0"><div class="eyebrow">${L.id} · ${L.region}</div><h2>${STOPS[sid].city}</h2></div>
+      <span class="signbadge pl"><${Icon} n=${isSafe(sid) ? 'shield' : 'users'} s=${22} /></span>
+      <div style="min-width:0"><div class="eyebrow">${L.id} · ${L.region}${isSafe(sid) ? ' · Safehouse' : ''}</div><h2>${STOPS[sid].city}</h2></div>
       <button class="iconbtn close" onClick=${onClose} aria-label="Close"><${Icon} n="close" /></button>
     </div>
-    <p class="muted" style="margin:4px 0 12px">${list.length === 1 ? 'One player is here.' : `${list.length} players are here.`} Challenge anyone up to ${DUEL.range} cities from you.</p>
+    <p class="muted" style="margin:4px 0 12px">${list.length === 1 ? 'One player is here.' : `${list.length} players are here.`} ${isSafe(sid) ? 'This is a safehouse: no challenges in or out, but you can race friendly typing races here.' : `Challenge anyone up to ${DUEL.range} cities from you as often as you like${here ? ', or race someone in this city' : ''}.`}</p>
     <div class="plist">
       ${list.map(p => {
-        const ch = p.me ? null : canChallenge(s, p, C.challenges);
-        return html`<div class=${cx('prow', p.me && 'me')}>
-          <${Avatar} p=${p} s=${44} />
-          <div class="tx"><b>${p.name}</b><span>${fmtN(p.xp)} XP${p.seen && !p.me ? ` · active ${daysAgo(p.seen)}` : ''}</span>${ch && !ch.ok ? html`<span class="why">${ch.why}</span>` : null}</div>
-          ${p.me ? html`<span class="chip glow">You</span>` : html`<button class="btn small primary" disabled=${!ch.ok} onClick=${() => onChallenge(p)} aria-label=${`Challenge ${p.name}`}><${Icon} n="swords" s=${16} />Challenge</button>`}
+        const ch = p.me ? null : canChallenge(s, p, C.challenges), rc = p.me ? null : canRace(s, p), stake = p.me ? 0 : stakeFor(mapStop(s), p.stop);
+        const seen = seenText(p), two = !!(rc && rc.ok && ch && ch.ok);
+        return html`<div class=${cx('prow', p.me ? 'me' : 'acts', two && 'two')}>
+          <span class="pav"><${Avatar} p=${p} s=${44} />${isOnline(p) && !p.me ? html`<span class="ponline" aria-hidden="true"></span>` : null}</span>
+          <div class="tx"><b>${p.name}</b><span>${fmtKm(p.km)}${p.cities != null ? ` · ${p.cities} ${p.cities === 1 ? 'city' : 'cities'}` : ''}${seen ? ` · ${seen}` : ''}</span>
+            ${ch && ch.ok && stake ? html`<span class="stake">${stake} km at stake</span>` : ch && !ch.ok && !(rc && rc.ok) ? html`<span class="why">${ch.why}</span>` : null}</div>
+          ${p.me ? html`<span class="chip glow">You</span>` : html`<div class="rowbtns">
+            ${rc && rc.ok ? html`<button class="btn small ${ch && ch.ok ? 'ghost' : 'primary'}" onClick=${() => onRace(p)} aria-label=${`Typing race with ${p.name}`}><${Icon} n="flower" s=${16} />Race</button>` : null}
+            ${ch && (ch.ok || !(rc && rc.ok)) ? html`<button class="btn small primary" disabled=${!ch.ok} onClick=${() => onChallenge(p)} aria-label=${`Challenge ${p.name}`}><${Icon} n="swords" s=${16} />Challenge</button>` : null}
+          </div>`}
         </div>`;
       })}
     </div>
@@ -99,7 +105,7 @@ function DuelRoom({ mode, target, challenge, onExit, onDecline }) {
     const { score, ms } = R.current;
     try {
       if (mode === 'send') { await sendChallenge(target, keys, score, ms); setRes({ score, ms }); }
-      else { const r = await answerChallenge(challenge, score, ms); setRes({ score, ms, result: r, city: STOPS[mapStop(S())].city }); }
+      else { const r = await answerChallenge(challenge, score, ms); setRes({ score, ms, result: r.result, km: r.km }); }
       setPhase('done'); sfx('done');
     } catch (e) { setRes({ score, ms, err: errCode(e) }); setPhase('error'); }
   };
@@ -122,11 +128,14 @@ function DuelRoom({ mode, target, challenge, onExit, onDecline }) {
   }, [phase, i]);
   const start = () => { R.current = { score: 0, ms: 0, t0: 0, lock: false }; setI(0); setPhase('play'); };
   const q = qs[i], correct = q ? q.opts.findIndex(o => o.ok) : -1;
-  const back = mapIdx(s) > 0 ? STOPS[ORDER[mapIdx(s) - 1]].city : null;
-  const stakes = html`<ul class="stakes">
-    <li><${Icon} n="trophy" s=${18} /><span><b>Win:</b> you stay where you are and earn +${DUEL.winXp} XP.</span></li>
-    <li><${Icon} n="arrowL" s=${18} /><span><b>Lose:</b> ${back ? `your marker drops back to ${back} on the players map.` : 'nothing happens, you are at the start already.'} Your lessons, stars and stamps are never affected.</span></li>
-  </ul>`;
+  const fromStop = mode === 'answer' ? challenge.fromStop : mapStop(S()), toStop = mode === 'answer' ? challenge.toStop : target.stop;
+  const stake = stakeFor(fromStop, toStop), road = roadBetween(fromStop, toStop);
+  const between = `the ${road} km of road between ${STOPS[fromStop].city} and ${STOPS[toStop].city}`;
+  const why = !road ? 'the stake for two players in the same city' : stake === round5(road / 4) ? `a quarter of ${between}` : `for ${between} (stakes run from ${KM.stakeMin} to ${KM.stakeMax} km)`;
+  const stakes = stake ? html`<ul class="stakes">
+    <li><${Icon} n="trophy" s=${18} /><span><b>Win:</b> +${stake} km, ${why}.</span></li>
+    <li><${Icon} n="road" s=${18} /><span><b>Lose:</b> −${stake} km from your total. Your lessons, stars and stamps are never affected.</span></li>
+  </ul>` : html`<ul class="stakes"><li><${Icon} n="shield" s=${18} /><span><b>A friendly challenge:</b> one of you is in a safehouse, so no kilometres are at stake.</span></li></ul>`;
   let body;
   if (phase === 'intro') body = html`<div class="results duel-intro">
       <div class="duel-vs"><${Avatar} p=${s.profile} s=${56} /><span class="vs">vs</span><${Avatar} p=${other} s=${56} /></div>
@@ -155,7 +164,7 @@ function DuelRoom({ mode, target, challenge, onExit, onDecline }) {
       <div class="duel-vs"><${Avatar} p=${s.profile} s=${56} /><span class="vs">vs</span><${Avatar} p=${other} s=${56} /></div>
       <div class="eyebrow">Challenge sent</div>
       <h2 class="num">${res.score} of ${DUEL.questions} right</h2>
-      <div class="resgrid"><div><b>${secs(res.ms)}</b><span>Time</span></div><div><b>+${res.score * DUEL.perRight}</b><span>XP</span></div><div><b>48 h</b><span>To answer</span></div></div>
+      <div class="resgrid"><div><b>${secs(res.ms)}</b><span>Time</span></div><div><b>${stake}</b><span>km at stake</span></div><div><b>48 h</b><span>To answer</span></div></div>
       <p class="muted" style="max-width:44ch">${notifierCfg() ? `${other.name} gets a notification if they have alerts on, and has 48 hours to answer.` : `${other.name} will see it next time they open Surra.`} You'll find the result on Home and under Challenges.</p>
       <${PushAsk} text=${`Get a notification when ${other.name} answers`} />
       <div class="actions"><button class="btn primary wide" onClick=${onExit}>Done</button></div>
@@ -165,9 +174,9 @@ function DuelRoom({ mode, target, challenge, onExit, onDecline }) {
     body = html`<div class="results">
       <div class=${cx('duel-vs', r)}><${Avatar} p=${s.profile} s=${56} /><span class="vs num">${res.score}–${theirs}</span><${Avatar} p=${other} s=${56} /></div>
       <div class="eyebrow">${r === 'won' ? 'You won' : r === 'lost' ? `${other.name} won` : 'A tie'}</div>
-      <h2>${r === 'won' ? 'Snyggt! You stay put' : r === 'lost' ? `Back to ${res.city}` : 'Nobody moves'}</h2>
-      <div class="resgrid"><div><b>${secs(res.ms)}</b><span>Your time</span></div><div><b>${secs(challenge.fromMs)}</b><span>${other.name}</span></div><div><b>+${res.score * DUEL.perRight + (r === 'won' ? DUEL.winXp : 0)}</b><span>XP</span></div></div>
-      <p class="muted" style="max-width:44ch">${r === 'won' ? `You keep your place in ${res.city}.` : r === 'lost' ? `Your marker on the players map moved back one city. Your lessons and stamps are untouched, and each lesson you finish moves you forward again.` : 'Same score, same time. Remarkable.'}</p>
+      <h2>${r === 'won' ? (stake ? `Snyggt! +${res.km} km` : 'Snyggt! A friendly win') : r === 'lost' ? (stake ? `${res.km ? `−${-res.km}` : '0'} km this time` : 'A friendly loss') : 'Nobody wins'}</h2>
+      <div class="resgrid"><div><b>${secs(res.ms)}</b><span>Your time</span></div><div><b>${secs(challenge.fromMs)}</b><span>${other.name}</span></div><div><b>${res.km > 0 ? '+' : ''}${res.km || 0}</b><span>km</span></div></div>
+      <p class="muted" style="max-width:44ch">${r === 'won' ? (stake ? `The kilometres are yours. Challenge ${other.name} again whenever you like.` : 'Nothing at stake in a safehouse, but bragging rights all the same.') : r === 'lost' ? `Your lessons and stamps are untouched, and every lesson adds new road. Challenge ${other.name} back whenever you like.` : 'Same score, same time. Remarkable.'}</p>
       <div class="actions"><button class="btn primary wide" onClick=${onExit}>Done</button></div>
     </div>`;
   }
@@ -198,7 +207,8 @@ function ChallengesSheet({ onClose, onPlay }) {
     const o = otherOf(c, uid).name;
     if (c.status === 'declined') return c.from === uid ? `${o} declined your challenge` : `You declined ${o}'s challenge`;
     const r = myResult(c, uid), mine = c.from === uid ? c.fromScore : c.toScore, theirs = c.from === uid ? c.toScore : c.fromScore;
-    return r === 'won' ? `You beat ${o} ${mine}–${theirs}` : r === 'lost' ? `${o} beat you ${theirs}–${mine}` : `A tie with ${o}, ${mine}–${theirs}`;
+    const ap = (S().community.applied || {})[c.id], km = ap && ap.km ? ` · ${ap.km > 0 ? '+' : '−'}${Math.abs(ap.km)} km` : '';
+    return (r === 'won' ? `You beat ${o} ${mine}–${theirs}` : r === 'lost' ? `${o} beat you ${theirs}–${mine}` : `A tie with ${o}, ${mine}–${theirs}`) + km;
   };
   return html`<${Sheet} onClose=${onClose} label="Challenges">
     <div class="sheet-head">
@@ -206,10 +216,10 @@ function ChallengesSheet({ onClose, onPlay }) {
       <div style="min-width:0"><div class="eyebrow">Players map</div><h2>Challenges</h2></div>
       <button class="iconbtn close" onClick=${onClose} aria-label="Close"><${Icon} n="close" /></button>
     </div>
-    ${!C.challenges.length ? html`<p class="muted" style="margin-top:8px">No challenges yet. Open a city on the players map and challenge someone up to ${DUEL.range} cities away.</p>` : null}
+    ${!C.challenges.length ? html`<p class="muted" style="margin-top:8px">No challenges yet. Open a city on the players map and challenge someone up to ${DUEL.range} cities away, as often as you like.</p>` : null}
     ${L.incoming.length ? html`<div class="section"><div class="eyebrow">Waiting for you</div><div class="plist">
       ${L.incoming.map(c => html`<div class="prow"><${Avatar} p=${otherOf(c, uid)} s=${40} />
-        <div class="tx"><b>${c.fromName} challenged you</b><span>${c.fromScore} of ${DUEL.questions} in ${secs(c.fromMs)} · ${hours(c)} h left</span></div>
+        <div class="tx"><b>${c.fromName} challenged you</b><span>${c.fromScore} of ${DUEL.questions} in ${secs(c.fromMs)} · ${stakeOf(c) ? `${stakeOf(c)} km at stake` : 'friendly'} · ${hours(c)} h left</span></div>
         <div class="rowbtns"><button class="btn small primary" onClick=${() => onPlay(c)}>Play</button><button class="btn small ghost" disabled=${busy === c.id} onClick=${() => act(c, declineChallenge)}>Decline</button></div></div>`)}
     </div></div>` : null}
     ${L.sent.length ? html`<div class="section"><div class="eyebrow">Sent</div><div class="plist">
@@ -233,7 +243,7 @@ function ChallengeCard({ onPlay, onOpen }) {
     return html`<section class="card duelcard" aria-label="Challenge">
       <${Avatar} p=${otherOf(c, uid)} s=${48} />
       <div class="tx"><span class="eyebrow">${L.incoming.length > 1 ? `${L.incoming.length} challenges waiting` : 'New challenge'}</span>
-        <b>${c.fromName} challenged you</b><span>They got ${c.fromScore} of ${DUEL.questions} right. Can you beat it?</span>
+        <b>${c.fromName} challenged you</b><span>They got ${c.fromScore} of ${DUEL.questions} right. ${stakeOf(c) ? `${stakeOf(c)} km at stake.` : 'A friendly one.'} Can you beat it?</span>
         <div class="row"><button class="btn primary small" onClick=${() => onPlay(c)}><${Icon} n="swords" s=${16} />Play</button><button class="linkbtn" onClick=${onOpen}>All challenges</button></div></div>
     </section>`;
   }
@@ -243,7 +253,7 @@ function ChallengeCard({ onPlay, onOpen }) {
       <${Avatar} p=${otherOf(c, uid)} s=${48} />
       <div class="tx"><span class="eyebrow">Challenge result</span>
         <b>${c.status === 'declined' ? `${c.toName} declined your challenge` : r === 'won' ? `You beat ${c.toName}!` : r === 'lost' ? `${c.toName} won your challenge` : `A tie with ${c.toName}`}</b>
-        <span>${c.status === 'declined' ? 'No harm done. Try someone else nearby.' : `${c.fromScore}–${c.toScore}. ${r === 'won' ? `+${DUEL.winXp} XP and you stay put.` : r === 'lost' ? 'Your marker dropped back one city. A lesson moves you forward again.' : 'Nobody moves.'}`}</span>
+        <span>${c.status === 'declined' ? 'No harm done. Try someone else nearby.' : `${c.fromScore}–${c.toScore}. ${(() => { const ap = (s.community.applied || {})[c.id], km = ap ? ap.km : 0; return r === 'won' ? (km ? `+${km} km.` : 'A friendly win.') : r === 'lost' ? (km ? `−${-km} km. Win them back any time.` : 'Nothing lost this time.') : 'Nobody wins.'; })()}`}</span>
         <div class="row"><button class="btn ghost small" onClick=${onOpen}>See challenges</button><button class="linkbtn" onClick=${() => markSeen(c)}>Dismiss</button></div></div>
     </section>`;
   }

@@ -22,6 +22,12 @@ const opts = { target: 'es2020', supported, legalComments: 'none', charset: 'utf
   const ctx = {}; vm.createContext(ctx);
   vm.runInContext(['data_a.js', 'data_b.js'].map(f => fs.readFileSync(path.join(ROOT, 'src', f), 'utf8')).join('\n') + '\n;this.LEVELS=LEVELS;this.STOPS=STOPS;', ctx);
   const ORDER = ctx.LEVELS.flatMap(l => l.stops), CITY = Object.fromEntries(ORDER.map(s => [s, ctx.STOPS[s].city]));
+  // road distances, safehouses and the stake rules from the app's own journey.js
+  const journey = fs.readFileSync(path.join(ROOT, 'src/journey.js'), 'utf8');
+  const lit = name => { const m = new RegExp(`const ${name} = ([\\s\\S]*?\\n?[}\\]]);`).exec(journey); if (!m) throw new Error('journey.js: no ' + name); return vm.runInNewContext('(' + m[1] + ')'); };
+  const ROAD_KM = lit('ROAD_KM'), SAFEHOUSES = lit('SAFEHOUSES'), KMR = lit('KM');
+  const KM_RULES = { stakeMin: KMR.stakeMin, stakeMax: KMR.stakeMax, raceStake: KMR.raceStake };
+  ORDER.forEach(s => { if (!ROAD_KM[s]) throw new Error('journey.js: no road distance for ' + s); });
   const body = [
     poly,
     '// ---- crypto: @noble/curves (P-256), @noble/hashes (SHA-256, HKDF), @noble/ciphers (AES-GCM), MIT licence, paulmillr.com/noble',
@@ -29,6 +35,9 @@ const opts = { target: 'es2020', supported, legalComments: 'none', charset: 'utf
     '// ---- the journey',
     `const ORDER = ${JSON.stringify(ORDER)};`,
     `const CITY = ${JSON.stringify(CITY)};`,
+    `const ROAD_KM = ${JSON.stringify(ROAD_KM)};`,
+    `const SAFEHOUSES = ${JSON.stringify(SAFEHOUSES)};`,
+    `const KM_RULES = ${JSON.stringify(KM_RULES)};`,
     '',
     main,
   ].join('\n');

@@ -88,7 +88,7 @@ function AuthForms({ initial }) {
       <div><h2 class="display">Save your journey</h2><p class="muted">Free, and only takes a minute.</p></div>
     </div>
     <ul class="perks">
-      <li><${Icon} n="cloud" s=${19} /><span>Back up your stars, stamps, streak and facts</span></li>
+      <li><${Icon} n="cloud" s=${19} /><span>Back up your kilometres, stars, stamps and facts</span></li>
       <li><${Icon} n="map" s=${19} /><span>Carry on from your phone, tablet or laptop</span></li>
       <li><${Icon} n="lock" s=${19} /><span>Only your email, name and progress are stored</span></li>
     </ul>
@@ -152,8 +152,8 @@ function ProfileView() {
       </div>
       <p class=${cx('syncline', a.sync === 'error' && 'bad')}><${Icon} n="cloud" s=${17} />${syncTxt}</p>
       <div class="statgrid" style="margin-top:14px">
-        <div class="statbox"><b>${fmtN(s.xp)}</b><span>XP</span></div>
-        <div class="statbox"><b>${liveStreak(s)}</b><span>Day streak</span></div>
+        <div class="statbox"><b>${fmtN(totalKm(s))}</b><span>Kilometres</span></div>
+        <div class="statbox"><b>${citiesOf(s)}</b><span>Cities visited</span></div>
         <div class="statbox"><b>${stamps}/20</b><span>Stamps</span></div>
         <div class="statbox"><b>${factsTotal(s)}/${FACT_TOTAL}</b><span>Facts</span></div>
       </div>

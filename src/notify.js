@@ -45,13 +45,14 @@ function writeLocalPush(v) { try { if (v) localStorage.setItem(LP_KEY, JSON.stri
 /* ---------- what the notifier needs to know to time a reminder */
 function nextLabel(s) {
   const a = nextAction(s);
-  if (a.type === 'lesson') return `${STOPS[a.sid].city} · ${LESSON_META[a.lesson].en}`;
+  if (a.type === 'lesson') { const leg = legOf(s); return `${STOPS[a.sid].city} · ${LESSON_META[a.lesson].en}${leg.sid === a.sid && leg.left ? ` · ${leg.left} km to go` : ''}`; }
   if (a.type === 'checkpoint') return `the ${LEVELS[a.li].id} checkpoint`;
   return 'a review round';
 }
 const profileName = s => ((s.profile && s.profile.name) || '').trim().slice(0, 24) || 'Traveller';
 function summaryOf(s, hour) {
-  return { tz: localTz().slice(0, 64), slot: utcSlot(hour), day: s.streak.last || '', streak: liveStreak(s), stop: currentStop(s), next: nextLabel(s).slice(0, 80), name: profileName(s) };
+  // "streak" stays 0: the field is kept until every app version has moved to kilometres
+  return { tz: localTz().slice(0, 64), slot: utcSlot(hour), day: lastActive(s), streak: 0, stop: currentStop(s), next: nextLabel(s).slice(0, 80), name: profileName(s) };
 }
 const summaryKey = d => JSON.stringify([d.tz, d.slot, d.day, d.streak, d.stop, d.next, d.name]);
 const hourOf = doc => (doc && Number.isInteger(doc.hour) ? doc.hour : 19);
@@ -211,18 +212,21 @@ async function claimInvite(doc) {
 }
 
 /* ---------- links into the app: ?ref= from invites, ?open= from notifications */
-const OPEN_TARGETS = ['home', 'map', 'players', 'challenges', 'practice', 'pass', 'me'];
+const OPEN_TARGETS = ['home', 'map', 'players', 'challenges', 'practice', 'pass', 'me', 'race'];
+const RACE_ID = /^r\d{13}_[A-Za-z0-9_-]{1,8}$/;
+// ?open=race&race=<id> becomes 'race:<id>'
+const targetOf = (open, race) => (open === 'race' ? (RACE_ID.test(race || '') ? 'race:' + race : 'home') : open);
 function captureParams() {
   let url; try { url = new URL(location.href); } catch (e) { return; }
-  const ref = url.searchParams.get('ref'), open = url.searchParams.get('open');
+  const ref = url.searchParams.get('ref'), open = url.searchParams.get('open'), race = url.searchParams.get('race');
   if (ref && /^[A-Za-z0-9_-]{6,40}$/.test(ref)) { try { if (!localStorage.getItem(REF_KEY)) localStorage.setItem(REF_KEY, JSON.stringify({ uid: ref, t: Date.now() })); } catch (e) { /* private mode */ } }
-  if (open && OPEN_TARGETS.includes(open)) PENDING.open = open;
+  if (open && OPEN_TARGETS.includes(open)) PENDING.open = targetOf(open, race);
   if (ref || open) {
-    url.searchParams.delete('ref'); url.searchParams.delete('open');
+    url.searchParams.delete('ref'); url.searchParams.delete('open'); url.searchParams.delete('race');
     try { history.replaceState(history.state, '', url.pathname + url.search + url.hash); } catch (e) { /* ignore */ }
   }
 }
-const openTarget = href => { try { const t = new URL(href, location.href).searchParams.get('open'); return OPEN_TARGETS.includes(t) ? t : 'home'; } catch (e) { return 'home'; } };
+const openTarget = href => { try { const q = new URL(href, location.href).searchParams, t = q.get('open'); return OPEN_TARGETS.includes(t) ? targetOf(t, q.get('race')) : 'home'; } catch (e) { return 'home'; } };
 
 /* ---------- the notifier: a nudge right after a challenge changes, so the other player hears about it at once */
 function pingNotifier(t, id) {
@@ -254,7 +258,7 @@ const raceNear = (counts, idx) => ORDER.reduce((a, sid, i) => a + (Math.abs(i - 
 // anonymous markers for people who can't see names yet
 function anonPlayers(counts) {
   const colors = Object.keys(AV_COLORS), out = []; let n = 0;
-  ORDER.forEach(sid => { for (let i = 0; i < Math.min(99, (counts && counts[sid]) || 0); i++) out.push({ uid: `anon:${sid}:${i}`, name: 'A learner', avatar: 'bee', color: colors[n++ % colors.length], stop: sid, xp: 0, anon: true }); });
+  ORDER.forEach(sid => { for (let i = 0; i < Math.min(99, (counts && counts[sid]) || 0); i++) out.push({ uid: `anon:${sid}:${i}`, name: 'A learner', avatar: 'bee', color: colors[n++ % colors.length], stop: sid, km: 0, anon: true }); });
   return out;
 }
 
@@ -279,12 +283,13 @@ function promptFor(s, a, P) {
 
 /* ---------- what's new: shown once to people who were already on the road before this release */
 const NEWS = {
-  id: '1.5',
+  id: '1.6',
   items: [
-    { icon: 'bell', t: 'Challenge alerts', d: 'A notification the moment someone challenges you, and when they answer your challenge.' },
-    { icon: 'users', t: 'See the whole race', d: 'How many learners are on the road, your rank, and your nearest rivals right on Home.' },
-    { icon: 'send', t: 'Invite a friend', d: 'Send a link and race them from Malmö to Kiruna.' },
-    { icon: 'candle', t: 'Reminders, if you want them', d: 'A nudge at a time you choose so your streak stays lit. Off unless you turn it on.' },
+    { icon: 'road', t: 'Journey kilometres', d: 'XP and streaks are gone. Lessons now cover the real road between cities, and the race is ranked by kilometres.' },
+    { icon: 'swords', t: 'Kilometres at stake', d: 'Challenge anyone within two cities as often as you like. Win and you gain a share of the road between you, lose and it comes off your total.' },
+    { icon: 'shield', t: 'Safehouses', d: 'Malmö, Göteborg, Stockholm and Umeå are safe: no challenges in or out, so you can learn without losing kilometres.' },
+    { icon: 'flower', t: 'Typing races', d: 'Race a player in your city, or the pacer bees, to the blomma. Plus typing practice with å, ä, ö and é.' },
+    { icon: 'check', t: 'Fairer choices', d: 'Reply options no longer give the answer away by their length, so challenges are about Swedish.' },
   ],
 };
 const newsDue = s => BUILD === 'pwa' && s.onboarded && (s.settings.news || '') !== NEWS.id;

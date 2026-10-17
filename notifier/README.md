@@ -6,16 +6,19 @@ Sends Surra's push notifications. It's a Google Apps Script that runs under the 
 
 | Alert | Default | When |
 | --- | --- | --- |
-| A challenge for you | On | Seconds after it's sent (the app pings the notifier), or within 10 minutes |
-| Your challenge's result | On | Seconds after the other player answers or declines |
+| A challenge for you | On | Seconds after it's sent (the app pings the notifier), or within 10 minutes. Says how many kilometres are at stake |
+| Your challenge's result | On | Seconds after the other player answers or declines, with the kilometres won or lost |
+| A typing race invite | On (with challenge alerts) | Seconds after a player in your city starts a race. Only sent while the two-minute invite is open, and dropped rather than held overnight |
 | Challenge about to expire | On | About six hours before a challenge you haven't answered expires |
 | A friend joined from your invite | On | When someone who opened your invite link creates a profile |
-| Practice reminder | Off | At the hour the player picks, on days they haven't practised. Warns when a streak is about to go out. Stops after a week away |
-| Rival alerts | Off | When someone passes you on the road, or a new player joins within two cities. At most one a day |
+| Practice reminder | Off | At the hour the player picks, on days they haven't practised, with the kilometres left to the next city. Stops after a week away |
+| Rival alerts | Off | When someone overtakes you in kilometres within two cities of you, or a new player joins within two cities. At most one a day |
 
 Alerts that arrive between 22:00 and 08:00 in the player's time zone wait until morning, except a reminder at the time they picked. Players change all of this in Surra under Me → Notifications.
 
-It also keeps two documents fresh for the app: `public/map` (anonymous counts of players per city, shown to guests) and `shared/roster` (everyone on the players map in one document).
+It also keeps two documents fresh for the app: `public/map` (anonymous counts of players per city, shown to guests) and `shared/roster` (everyone on the players map in one document, with their kilometres and cities).
+
+The build copies the road distances, safehouses and stake rules from `src/journey.js` into `Code.gs`, so the kilometres in a notification always match the app's.
 
 ## Set up, once
 
@@ -33,7 +36,7 @@ It also keeps two documents fresh for the app: `public/map` (anonymous counts of
 
 ## Updating
 
-Rebuild, paste the new `Code.gs` over the old one and save. Then **Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy**, so the web app picks up the new code. The URL stays the same. Run `setup` again only if the script asks for new permissions.
+If the update comes with new security rules, publish `firebase/firestore.rules` first. Rebuild, paste the new `Code.gs` over the old one and save. Then **Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy**, so the web app picks up the new code. The URL stays the same. Run `setup` again only if the script asks for new permissions.
 
 ## If Firestore access fails
 

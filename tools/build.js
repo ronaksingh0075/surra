@@ -23,7 +23,7 @@ function prepaint() {
   const P = {}; for (const t of ctx.THEMES) P[t.id] = t.base ? { b: [t.light.bg, t.dark.bg] } : { l: t.light, d: t.dark };
   return `<script>try{(function(){var s=JSON.parse(localStorage.getItem('surra.progress.v1')||'null'),o=(s&&s.settings)||{},P=${JSON.stringify(P)},t=P[o.palette]||P.mysig,f=o.mode==='light'||o.mode==='dark',m=f?o.mode:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),r=document.documentElement,c=t.b?{bg:t.b[m==='dark'?1:0]}:t[m==='dark'?'d':'l'];if(f)r.setAttribute('data-theme',m);if(!t.b)for(var k in c)r.style.setProperty('--'+k,c[k]);r.style.background=c.bg;r.style.colorScheme=m;var e=document.querySelectorAll('meta[name=theme-color]');for(var i=0;i<e.length;i++){e[i].setAttribute('content',c.bg);e[i].removeAttribute('media')}})()}catch(e){}</script>`;
 }
-const FILES = ['data_a.js', 'data_b.js', 'facts.js', 'life.js', '@map', 'core.js', 'themes.js', 'account.js', 'community.js', 'notify.js', 'ui.js', 'ui_map.js', 'ui_account.js', 'ui_community.js', 'ui_notify.js', 'ui_shell.js', 'boot.js'];
+const FILES = ['data_a.js', 'data_b.js', 'facts.js', 'life.js', '@map', 'core.js', 'journey.js', 'spoken.js', 'typing.js', 'themes.js', 'account.js', 'community.js', 'race.js', 'notify.js', 'ui.js', 'ui_map.js', 'ui_account.js', 'ui_community.js', 'ui_notify.js', 'ui_type.js', 'ui_shell.js', 'boot.js'];
 function bundle(build) {
   return [
     '(function () {',

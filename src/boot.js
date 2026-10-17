@@ -8,6 +8,7 @@ initAI();
 initSync();
 initInstall();
 initCommunity();
+initRaces();
 initNotify();
 initAccount();
 initServiceWorker();

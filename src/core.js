@@ -37,13 +37,15 @@ const ACH = [
   { id: 'combo10', sv: 'Tio i rad', en: '10 right answers in a row', icon: 'bolt' },
   { id: 'perfect', sv: 'Felfri', en: 'A lesson without a mistake', icon: 'star' },
   { id: 'own5', sv: 'Egen röst', en: '5 of your own replies rated good', icon: 'pen' },
-  { id: 'streak7', sv: 'Hela ljusstaken', en: 'All seven candles: a 7-day streak', icon: 'candle' },
-  { id: 'streak30', sv: 'Midvinterljus', en: 'A 30-day streak', icon: 'candle' },
+  { id: 'km500', sv: 'Femtio mil', en: 'Travel 500 km (50 Swedish mil)', icon: 'road' },
+  { id: 'km1500', sv: 'Milslukare', en: 'Travel 1,500 km', icon: 'road' },
   { id: 'quick15', sv: 'Blixtsnabb', en: '15 or more in Snabbsvar', icon: 'timer' },
   { id: 'fix10', sv: 'Envis', en: 'Fix 10 mistakes in review', icon: 'refresh' },
   { id: 'facts10', sv: 'Nyfiken', en: 'Unlock 10 “Did you know?” facts', icon: 'bulb' },
   { id: 'lab5', sv: 'Labbråtta', en: 'Finish 5 life-science lessons', icon: 'flask' },
   { id: 'duel1', sv: 'Utmanare', en: 'Win a challenge on the players map', icon: 'swords' },
+  { id: 'race1', sv: 'Snabba vingar', en: 'Win a typing race against another player', icon: 'flower' },
+  { id: 'letters', sv: 'Prickfri', en: 'Three stars in the å, ä, ö drill', icon: 'keyboard' },
   { id: 'factsAll', sv: 'Allvetare', en: 'Unlock all 80 facts', icon: 'book' },
   { id: 'night', sv: 'Nattuggla', en: 'Practise after 22:00', icon: 'moon' },
   { id: 'morning', sv: 'Morgonpigg', en: 'Practise before 07:00', icon: 'sun' },
@@ -74,21 +76,27 @@ const CELEBRATE = cell(null);
 const LS_KEY = 'surra.progress.v1';
 function freshState() {
   return {
-    v: 1, onboarded: false, start: 'A2', goal: 60, xp: 0,
-    streak: { count: 0, last: null, best: 0 }, log: {}, lessons: {}, checkpoints: {}, cpTried: {}, mistakes: {}, ach: {},
-    stats: { answers: 0, correct: 0, bestCombo: 0, talks: 0, ownGood: 0, quickBest: 0, perfect: 0, fixed: 0 },
-    settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto', news: '', snooze: {} },
+    v: 1, kmv: 1, onboarded: false, start: 'A2', goal: 60,
+    extraKm: 0, detour: { d: '', n: 0 }, log: {}, lessons: {}, checkpoints: {}, cpTried: {}, mistakes: {}, ach: {},
+    stats: { answers: 0, correct: 0, bestCombo: 0, talks: 0, ownGood: 0, quickBest: 0, perfect: 0, fixed: 0, typed: 0, bestWpm: 0, races: 0, raceWins: 0 },
+    settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto', news: '', snooze: {}, letters: 'easy', spoken: true },
     profile: { name: '', avatar: 'bee', color: 'fjord' }, owner: null,
-    community: { joined: false, setback: 0, applied: {} },
+    community: { joined: false, applied: {}, races: {} },
     createdAt: Date.now(), updatedAt: 0,
   };
 }
 function withDefaults(s) {
   const d = freshState();
   if (!s || typeof s !== 'object' || s.v !== 1) return d;
+  const fromXp = s.kmv !== 1; // progress from before journey kilometres (XP, streaks, setbacks)
   for (const k of Object.keys(d)) {
     if (s[k] === undefined || s[k] === null && d[k] !== null) s[k] = d[k];
-    else if (['streak', 'stats', 'settings', 'profile', 'community'].includes(k)) for (const kk of Object.keys(d[k])) if (s[k][kk] === undefined) s[k][kk] = d[k][kk];
+    else if (['stats', 'settings', 'profile', 'community', 'detour'].includes(k)) for (const kk of Object.keys(d[k])) if (s[k][kk] === undefined) s[k][kk] = d[k][kk];
+  }
+  if (fromXp) {
+    // trip kilometres come from the stars you already have; the old XP log can't be turned into km, so the week starts fresh
+    s.kmv = 1; s.extraKm = 0; s.detour = { d: '', n: 0 }; s.log = {};
+    if (s.community) delete s.community.setback;
   }
   if (!LEVEL_IDS.includes(s.start)) s.start = 'A2';
   return s;
@@ -253,25 +261,10 @@ function dailyFact(s) {
   const [sid, i] = open[h % open.length];
   return { sid, i, locked: false };
 }
-function liveStreak(s) { const l = s.streak.last; return (l === today() || l === dayOffset(-1)) ? s.streak.count : 0; }
-const todayXP = s => s.log[today()] || 0;
 function weekDays() {
   const d = new Date(); const dow = (d.getDay() + 6) % 7; const out = [];
   for (let i = 0; i < 7; i++) { const x = new Date(d); x.setDate(d.getDate() - dow + i); out.push(dateStr(x)); }
   return out;
-}
-function awardXP(s, n) {
-  n = Math.max(0, Math.round(n));
-  const t = today();
-  s.xp += n; s.log[t] = (s.log[t] || 0) + n;
-  const keys = Object.keys(s.log).sort(); while (keys.length > 70) delete s.log[keys.shift()];
-  if (s.streak.last !== t) {
-    s.streak.count = s.streak.last === dayOffset(-1) ? s.streak.count + 1 : 1;
-    s.streak.last = t; s.streak.best = Math.max(s.streak.best || 0, s.streak.count);
-  }
-  const h = new Date().getHours();
-  if (h >= 22) addAch(s, 'night');
-  if (h < 7) addAch(s, 'morning');
 }
 function addAch(s, id) { if (!s.ach[id]) { s.ach[id] = Date.now(); newAchievements.push(id); } }
 function evalAchievements(s) {
@@ -281,8 +274,11 @@ function evalAchievements(s) {
   if (s.stats.bestCombo >= 10) addAch(s, 'combo10');
   if (s.stats.perfect >= 1) addAch(s, 'perfect');
   if (s.stats.ownGood >= 5) addAch(s, 'own5');
-  if (liveStreak(s) >= 7) addAch(s, 'streak7');
-  if (liveStreak(s) >= 30) addAch(s, 'streak30');
+  const km = totalKm(s);
+  if (km >= 500) addAch(s, 'km500');
+  if (km >= 1500) addAch(s, 'km1500');
+  if ((s.stats.raceWins || 0) >= 1) addAch(s, 'race1');
+  if ((s.lessons['type:letters'] || 0) >= 3) addAch(s, 'letters');
   if (s.stats.quickBest >= 15) addAch(s, 'quick15');
   if (s.stats.fixed >= 10) addAch(s, 'fix10');
   LEVEL_IDS.forEach(id => { if (s.checkpoints[id]) addAch(s, 'cp_' + id); });
@@ -417,58 +413,63 @@ function lessonReview(s) {
 function completeLesson(lesson, st) {
   const acc = st.total ? st.correctFirst / st.total : 1;
   const stars = acc >= 0.9 ? 3 : acc >= 0.7 ? 2 : 1;
-  const out = { stars, acc, xp: 0, newStamp: false, levelUp: null, passed: null, prevStars: 0, newFacts: [] };
+  // km: new road when the lesson covers more of a city's road (first time, or more stars); otherwise a practice detour
+  const out = { stars, acc, km: 0, kmKind: 'road', capped: false, newStamp: false, levelUp: null, passed: null, prevStars: 0, newFacts: [] };
   const fsid = lesson.sid && FACTS[lesson.sid] ? lesson.sid : null;
   const factsBefore = fsid ? factsUnlocked(S(), fsid) : 0;
   const lifeBefore = fsid && LIFE_FACTS[fsid] ? lifeFactOpen(S(), fsid) : true;
   update(s => {
+    const tripBefore = tripKm(s);
     s.stats.answers += st.total; s.stats.correct += st.correctFirst;
     s.stats.bestCombo = Math.max(s.stats.bestCombo, st.bestCombo);
     s.stats.ownGood += st.ownGood || 0;
     st.missed.forEach(k => { const m = s.mistakes[k] || { n: 0 }; m.n += 1; m.t = Date.now(); s.mistakes[k] = m; });
     st.fixed.forEach(k => { if (s.mistakes[k]) { delete s.mistakes[k]; s.stats.fixed += 1; } });
     const mk = Object.keys(s.mistakes); if (mk.length > 120) mk.sort((a, b) => s.mistakes[a].t - s.mistakes[b].t).slice(0, mk.length - 120).forEach(k => delete s.mistakes[k]);
-    let bonus = 15;
     if (lesson.type === 'learn' || lesson.type === 'reply' || lesson.type === 'guided') {
       const key = lesson.sid + ':' + (lesson.type === 'guided' ? 'talk' : lesson.type);
       out.prevStars = s.lessons[key] || 0;
       if (lesson.type === 'reply' && !out.prevStars) out.newStamp = true;
       s.lessons[key] = Math.max(out.prevStars, stars);
-      if (lesson.type === 'guided') { s.stats.talks += 1; bonus = 25; }
+      if (lesson.type === 'guided') s.stats.talks += 1;
     }
     if (lesson.type === 'life') {
       const key = lesson.sid + ':life';
       out.prevStars = s.lessons[key] || 0;
       s.lessons[key] = Math.max(out.prevStars, stars);
-      bonus = 20;
     }
     if (lesson.type === 'checkpoint') {
       s.cpTried[lesson.levelId] = true;
       out.passed = st.correctFirst >= lesson.pass;
       if (out.passed) {
-        bonus = 100;
         if (!s.checkpoints[lesson.levelId]) { s.checkpoints[lesson.levelId] = true; out.levelUp = lesson.li + 1; }
         s.lessons['cp:' + lesson.levelId] = Math.max(s.lessons['cp:' + lesson.levelId] || 0, stars);
-      } else bonus = 10;
+      }
     }
-    if (lesson.type === 'review') bonus = 10;
-    if (lesson.type !== 'review' && s.community && s.community.setback > 0) { s.community.setback -= 1; out.caughtUp = true; }
-    if (acc === 1 && st.total >= 5) { s.stats.perfect += 1; bonus += 10; }
-    out.xp = st.xp + bonus;
-    awardXP(s, out.xp);
+    if (lesson.type === 'type' && lesson.key) {
+      out.prevStars = s.lessons[lesson.key] || 0;
+      s.lessons[lesson.key] = Math.max(out.prevStars, stars);
+      s.stats.typed = (s.stats.typed || 0) + st.total;
+    }
+    if (acc === 1 && st.total >= 5) s.stats.perfect += 1;
+    const road = tripKm(s) - tripBefore;
+    if (road > 0) { logKm(s, road); out.km = road; }
+    else { const want = st.correctFirst; out.km = addDetour(s, want); out.kmKind = 'detour'; out.capped = out.km < want; }
     if (fsid) for (let i = factsBefore; i < factsUnlocked(s, fsid); i++) out.newFacts.push(i);
     if (fsid && !lifeBefore && lifeFactOpen(s, fsid)) out.newLifeFact = true;
   });
   return out;
 }
-function recordTalk(sid, stars, xp) {
-  const before = factsUnlocked(S(), sid), newFacts = [];
+function recordTalk(sid, stars, mine) {
+  const before = factsUnlocked(S(), sid), out = { newFacts: [], km: 0, kmKind: 'road' };
   update(s => {
-    const prev = s.lessons[sid + ':talk'] || 0;
-    s.lessons[sid + ':talk'] = Math.max(prev, stars); s.stats.talks += 1; awardXP(s, xp);
-    for (let i = before; i < factsUnlocked(s, sid); i++) newFacts.push(i);
+    const t0 = tripKm(s), prev = s.lessons[sid + ':talk'] || 0;
+    s.lessons[sid + ':talk'] = Math.max(prev, stars); s.stats.talks += 1;
+    const road = tripKm(s) - t0;
+    if (road > 0) { logKm(s, road); out.km = road; } else { out.km = addDetour(s, Math.min(8, mine || 0)); out.kmKind = 'detour'; }
+    for (let i = before; i < factsUnlocked(s, sid); i++) out.newFacts.push(i);
   });
-  return newFacts;
+  return out;
 }
 
 /* ---------- toasts */

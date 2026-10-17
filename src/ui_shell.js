@@ -34,7 +34,9 @@ function initBack() {
 
 /* ---------- header */
 function TopBar({ s, go }) {
-  const streak = liveStreak(s), tx = todayXP(s), lit = s.streak.last === today();
+  const a = ACCT.use(), C = COMM.use();
+  const km = totalKm(s), cities = citiesOf(s), leg = legOf(s), city = STOPS[leg.sid].city;
+  const race = a.status === 'ready' && onMap(s) && C.playersAt ? standing(mapPlayers(s, C.players)) : null;
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current; if (!el) return;
@@ -45,12 +47,14 @@ function TopBar({ s, go }) {
   return html`<header class="topbar" ref=${ref}>
     <button class="brand" onClick=${() => go({ name: 'home' })} aria-label="Surra home"><${BeeLogo} /><span class="display">Surra</span></button>
     <div class="stats" role="group" aria-label="Your progress">
-      <button class=${cx('stat', lit && 'lit')} onClick=${() => go({ name: 'pass' })} aria-label=${`${streak} day streak${lit ? ', practised today' : ''}`} title="Streak">
-        <span class="si"><${Icon} n="candle" s=${19} /></span><span class="num">${streak}</span><span class="unit">${streak === 1 ? 'day' : 'days'}</span></button>
-      <button class="stat" onClick=${() => go({ name: 'pass' })} aria-label=${`${s.xp} XP in total`} title="Total XP">
-        <span class="si gold"><${Icon} n="star" s=${17} fill /></span><span class="num">${fmtShort(s.xp)}</span><span class="unit">XP</span></button>
-      <button class="stat" onClick=${() => go({ name: 'pass' })} aria-label=${`${tx} of ${s.goal} XP today`} title="Daily goal">
-        <${Ring} v=${tx} max=${s.goal} size=${20} /><span class="num">${fmtShort(tx)}/${s.goal}</span><span class="unit">today</span></button>
+      <button class="stat" onClick=${() => go({ name: 'pass' })} aria-label=${`${fmtN(km)} kilometres travelled`} title="Kilometres travelled">
+        <span class="si road"><${Icon} n="road" s=${18} /></span><span class="num">${fmtShort(km)}</span><span class="unit keep">km</span></button>
+      <button class="stat" onClick=${() => go({ name: 'pass' })} aria-label=${`${cities} of 20 cities visited`} title="Cities visited">
+        <span class="si gold"><${Icon} n="stamp" s=${18} /></span><span class="num">${cities}</span><span class="unit">${cities === 1 ? 'city' : 'cities'}</span></button>
+      ${race && race.ranked.length > 1 ? html`<button class="stat" onClick=${() => go({ name: 'players' })} aria-label=${`Number ${race.rank} of ${race.ranked.length} on the players map`} title="Your place in the race">
+          <span class="si gold"><${Icon} n="trophy" s=${18} /></span><span class="num">#${race.rank}</span><span class="unit">of ${race.ranked.length}</span></button>`
+        : html`<button class="stat" onClick=${() => go({ name: 'map' })} aria-label=${leg.left ? `${leg.left} km of road to ${city}` : `${city} reached`} title="The road ahead">
+          <${Ring} v=${leg.got} max=${leg.total} size=${20} /><span class="num">${leg.left}</span><span class="unit keep">km</span><span class="unit">to ${city}</span></button>`}
     </div>
   </header>`;
 }
@@ -76,14 +80,15 @@ function TabBar({ tab, setTab, s }) {
 }
 
 /* ---------- Home */
-function TodayCard({ s, go }) {
-  const tx = todayXP(s), left = Math.max(0, s.goal - tx), streak = liveStreak(s);
-  return html`<section class="card today" aria-label="Today">
-    <div class="today-ring"><${Ring} v=${tx} max=${s.goal} size=${64} /><b class="num">${Math.min(999, Math.round((tx / s.goal) * 100))}%</b></div>
+function RoadCard({ s, go }) {
+  const leg = legOf(s), city = STOPS[leg.sid].city, from = leg.from ? STOPS[leg.from].city : null;
+  const pct = leg.total ? Math.round((100 * leg.got) / leg.total) : 100, tk = todayKm(s);
+  return html`<section class="card today roadcard" aria-label="The road ahead">
+    <div class="today-ring"><${Ring} v=${leg.got} max=${leg.total} size=${64} /><b class="num">${pct}%</b></div>
     <div class="tx">
-      <span class="eyebrow">Today</span>
-      <b>${left ? `${left} XP to your daily goal` : 'Daily goal reached. Snyggt!'}</b>
-      <span>${streak ? `${streak}-day streak. Keep the candles lit.` : 'Finish a lesson to light your first candle.'}</span>
+      <span class="eyebrow">${from ? `${from} to ${city}` : `Over the bridge into ${city}`} · ${leg.total} km</span>
+      <b>${leg.left ? `${leg.left} km of road to go` : `${city} reached. Snyggt!`}</b>
+      <span>${tk ? `+${tk} km today · ` : ''}${fmtKm(totalKm(s))} in total${isSafe(leg.sid) ? ' · a safehouse' : ''}</span>
     </div>
     <button class="iconbtn" onClick=${() => go({ name: 'pass' })} aria-label="Open your passport"><${Icon} n="arrowR" /></button>
   </section>`;
@@ -99,14 +104,15 @@ function LifeTrackCard({ s, startAction, openStop }) {
       <button class="linkbtn" onClick=${() => openStop(sid)}>About ${STOPS[sid].city}</button>` : null}</div>
   </section>`;
 }
-function HomeTab({ s, go, startAction, openStop, openRegion, playChallenge, openChallenges, challengePlayer }) {
+function HomeTab({ s, go, startAction, openStop, openRegion, playChallenge, openChallenges, challengePlayer, racePlayer, joinRace }) {
   const L = LEVELS[LEVEL_INDEX[currentStop(s)]];
   return html`<div class="page">
+    <${RaceInviteCard} onJoin=${joinRace} />
     <${ChallengeCard} onPlay=${playChallenge} onOpen=${openChallenges} />
     <${ContinueCard} s=${s} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} />
     <${PromptCard} s=${s} go=${go} />
-    <${RivalsCard} s=${s} go=${go} onChallenge=${challengePlayer} />
-    <${TodayCard} s=${s} go=${go} />
+    <${RivalsCard} s=${s} go=${go} onChallenge=${challengePlayer} onRace=${racePlayer} />
+    <${RoadCard} s=${s} go=${go} />
     ${lifeFirst(s) ? html`<${LifeTrackCard} s=${s} startAction=${startAction} openStop=${openStop} />` : null}
     <${FactOfDay} s=${s} />
     <button class="card mapteaser" onClick=${() => go({ name: 'map' })} aria-label="Open the journey map">
@@ -149,9 +155,32 @@ function PracticeTab({ s, startAction, openStop }) {
       <button class="card pcard" onClick=${() => startAction({ type: 'quick' })}>
         <span class="qi"><${Icon} n="timer" s=${22} /></span><b>Snabbsvar</b>
         <span>${s.stats.quickBest ? `60 seconds of quick replies. Best: ${s.stats.quickBest}` : '60 seconds of quick replies'}</span></button>
+      <button class="card pcard" onClick=${() => startAction({ type: 'race', mode: 'bees' })}>
+        <span class="qi"><${Icon} n="flower" s=${22} /></span><b>Bee race</b>
+        <span>${s.stats.bestWpm ? `Beat the pacer bees to the blomma. Best: ${s.stats.bestWpm} wpm` : commOn() ? 'Beat the pacer bees, or race a player in your city' : 'Type a paragraph faster than the pacer bees'}</span></button>
       ${env.ai === 'ready' ? html`<button class="card pcard" onClick=${() => startAction({ type: 'generate', sid: cur })}>
         <span class="qi"><${Icon} n="sparkle" s=${22} /></span><b>Fresh situations</b><span>Claude writes 6 new drills for ${STOPS[cur].city}</span></button>` : null}
     </div>
+    <p class="faint detour-left">${detourLeft(s) ? `Practice adds up to ${detourLeft(s)} more km of detours today.` : `Today's ${KM.detourCap} km of practice detours are used up. Lessons still cover new road.`}</p>
+    <section class="card" style="margin-top:16px">
+      <div class="sec-head"><h2 class="display">Typing</h2>${s.stats.bestWpm ? html`<span class="chip glow num">${s.stats.bestWpm} wpm best</span>` : null}</div>
+      <p class="muted sec-sub">Type real Swedish, word by word. ${letterEasy(s) ? 'Letter help is on: a, o and e count for å, ä, ö and é.' : 'Exact letters: å, ä, ö and é count.'}</p>
+      <button class="lessonrow" onClick=${() => startAction({ type: 'letters' })}>
+        <span class="li"><${Icon} n="keyboard" /></span>
+        <span class="tx"><b>Å, ä och ö</b><span>The three extra letters, and why far, får and för are three different words</span></span>
+        <${Stars} n=${s.lessons['type:letters'] || 0} />
+      </button>
+      <button class="lessonrow" onClick=${() => startAction({ type: 'lesson', sid: cur, lesson: 'type' })}>
+        <span class="li"><${Icon} n="pen" /></span>
+        <span class="tx"><b>Phrases from ${STOPS[cur].city}</b><span>Type the eight key phrases of your current stop</span></span>
+        <${Stars} n=${starsOf(s, cur, 'type')} />
+      </button>
+      ${env.tts ? html`<button class="lessonrow" onClick=${() => startAction({ type: 'lesson', sid: cur, lesson: 'hear' })}>
+        <span class="li"><${Icon} n="speaker" /></span>
+        <span class="tx"><b>Hear and type</b><span>Listen to ${STOPS[cur].city}'s phrases and type what you hear</span></span>
+        <${Icon} n="arrowR" />
+      </button>` : null}
+    </section>
     ${lifeOn(s) ? html`<section class="card" style="margin-top:16px">
       <div class="sec-head"><h2 class="display">Life-science lab</h2><span class="chip glow num">${lifeDone(s)}/${LIFE_IDS.length}</span></div>
       <p class="muted sec-sub">Lab and industry Swedish at the work stops: safety, clinics, launches, tenders and TLV.</p>
@@ -188,6 +217,15 @@ function MeTab({ go }) {
   </div>`;
 }
 
+/* ---------- a race invite from a notification: wait for the profile to load, then open it */
+function openRaceLink(id, open, tries = 0) {
+  if (!commReady()) { if (tries < 20) setTimeout(() => openRaceLink(id, open, tries + 1), 500); return; }
+  getRace(id).then(r => {
+    if (r && r.b === meUid() && inviteOpen(r)) open(r);
+    else toast(r && r.status === 'on' ? 'That race has already started' : 'That race invite has ended', 'flower');
+  }).catch(() => toast("Couldn't open that race. Check your connection.", 'info'));
+}
+
 /* ---------- the app */
 function App() {
   const s = useApp();
@@ -221,6 +259,7 @@ function App() {
   NAV.open = t => {
     if (!S().onboarded) return;
     setView(null);
+    if (String(t).startsWith('race:')) { openRaceLink(String(t).slice(5), r => { setSheet(null); setRoom({ name: 'race', mode: 'guest', race: r, k: Date.now() }); }); return; }
     if (t === 'challenges') { setMapMode('players'); setTabRaw('map'); armBack(); setSheet({ type: 'challenges' }); return; }
     if (room) { setSheet(null); setTabRaw({ players: 'map', challenges: 'map' }[t] || t); if (t === 'players') setMapMode('players'); return; }
     go({ name: t });
@@ -233,10 +272,13 @@ function App() {
       if (a.lesson === 'learn') setRoom({ name: 'lesson', lesson: lessonLearn(a.sid), k });
       else if (a.lesson === 'reply') setRoom({ name: 'lesson', lesson: lessonReply(a.sid), k });
       else if (a.lesson === 'life' && LIFE[a.sid]) setRoom({ name: 'lesson', lesson: lessonLife(a.sid), k });
+      else if (a.lesson === 'type' || a.lesson === 'hear') setRoom({ name: 'lesson', lesson: lessonType(a.sid, a.lesson === 'hear' ? 'hear' : 'see'), k });
       else setRoom(ENV.get().ai === 'off' ? { name: 'lesson', lesson: lessonGuided(a.sid), k } : { name: 'talk', sid: a.sid, k });
     } else if (a.type === 'checkpoint') setRoom({ name: 'lesson', lesson: lessonCheckpoint(a.li), k });
     else if (a.type === 'review') setRoom({ name: 'lesson', lesson: lessonReview(S()), k });
     else if (a.type === 'quick') setRoom({ name: 'quick', k });
+    else if (a.type === 'letters') setRoom({ name: 'lesson', lesson: lessonLetters(), k });
+    else if (a.type === 'race') setRoom({ name: 'race', mode: a.mode || 'bees', target: a.target, race: a.race, k });
     else if (a.type === 'generate') setRoom(ENV.get().ai === 'ready' ? { name: 'generate', sid: a.sid, k } : null);
     else setRoom(null);
   };
@@ -249,19 +291,22 @@ function App() {
   const openChallenges = () => setSheet({ type: 'challenges' });
   const challengePlayer = target => { setSheet(null); setRoom({ name: 'duel', mode: 'send', target, k: Date.now() }); };
   const playChallenge = c => { setSheet(null); setRoom({ name: 'duel', mode: 'answer', challenge: c, k: Date.now() }); };
+  const racePlayer = target => { setSheet(null); setRoom({ name: 'race', mode: 'host', target, k: Date.now() }); };
+  const joinRace = r => { setSheet(null); setRoom({ name: 'race', mode: 'guest', race: r, k: Date.now() }); };
   if (view && view.name === 'onboard') return html`<${Onboarding} done=${() => { setView(null); setTab('home'); }} go=${go} /><${Toasts} /><${UpdateBanner} />`;
   if (view && view.name === 'account') return html`<${AccountPage} go=${go} mode=${view.mode} /><${Toasts} /><${UpdateBanner} />`;
   const body = tab === 'map' ? html`<${MapTab} s=${s} mode=${mapMode} setMode=${setMapMode} go=${go} openStop=${openStop} openRegion=${openRegion} openFact=${openFact} openPlayers=${openPlayers} openChallenges=${openChallenges} />`
     : tab === 'practice' ? html`<${PracticeTab} s=${s} startAction=${startAction} openStop=${openStop} />`
     : tab === 'pass' ? html`<div class="page"><${Pass} go=${go} embedded /></div>`
     : tab === 'me' ? html`<${MeTab} go=${go} />`
-    : html`<${HomeTab} s=${s} go=${go} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} playChallenge=${playChallenge} openChallenges=${openChallenges} challengePlayer=${challengePlayer} />`;
+    : html`<${HomeTab} s=${s} go=${go} startAction=${startAction} openStop=${openStop} openRegion=${openRegion} playChallenge=${playChallenge} openChallenges=${openChallenges} challengePlayer=${challengePlayer} racePlayer=${racePlayer} joinRace=${joinRace} />`;
   let roomEl = null;
   if (room && room.name === 'lesson') roomEl = html`<${Player} key=${room.k} lesson=${room.lesson} onExit=${closeRoom} onNext=${continueJourney} />`;
   else if (room && room.name === 'talk') roomEl = html`<${Talk} key=${room.k} sid=${room.sid} onExit=${closeRoom} onNext=${continueJourney} onRestart=${() => setRoom({ name: 'talk', sid: room.sid, k: Date.now() })} onGuided=${() => setRoom({ name: 'lesson', lesson: lessonGuided(room.sid), k: Date.now() })} />`;
   else if (room && room.name === 'quick') roomEl = html`<${Quick} key=${room.k} onExit=${closeRoom} />`;
   else if (room && room.name === 'duel') roomEl = html`<${DuelRoom} key=${room.k} mode=${room.mode} target=${room.target} challenge=${room.challenge} onExit=${closeRoom}
     onDecline=${room.challenge ? (async () => { try { await declineChallenge(room.challenge); toast(`You declined ${room.challenge.fromName}'s challenge`, 'swords'); } catch (e) { toast("Couldn't decline right now. Try again.", 'info'); } closeRoom(); }) : null} />`;
+  else if (room && room.name === 'race') roomEl = html`<${RaceRoom} key=${room.k} mode=${room.mode} target=${room.target} race=${room.race} onExit=${closeRoom} onAgain=${o => setRoom({ name: 'race', ...o, k: Date.now() })} />`;
   else if (room && room.name === 'generate') roomEl = html`<${Generate} key=${room.k} sid=${room.sid} onExit=${closeRoom} onReady=${lesson => setRoom({ name: 'lesson', lesson, k: Date.now() })} />`;
   return html`<div class=${cx('shell', 'tab-' + tab)}>
       <div class="wrap shell-top"><${TopBar} s=${s} go=${go} /></div>
@@ -271,7 +316,7 @@ function App() {
     ${roomEl}
     ${sheet && sheet.type === 'stop' ? html`<${StopSheet} key=${'s' + sheet.sid} sid=${sheet.sid} s=${s} onClose=${() => setSheet(null)} start=${startAction} />` : null}
     ${sheet && sheet.type === 'region' ? html`<${RegionSheet} key=${'r' + sheet.li} li=${sheet.li} s=${s} onClose=${() => setSheet(null)} openStop=${openStop} start=${startAction} />` : null}
-    ${sheet && sheet.type === 'players' ? html`<${PlayersSheet} key=${'p' + sheet.sid} sid=${sheet.sid} players=${sheet.players} onClose=${() => setSheet(null)} onChallenge=${challengePlayer} />` : null}
+    ${sheet && sheet.type === 'players' ? html`<${PlayersSheet} key=${'p' + sheet.sid} sid=${sheet.sid} players=${sheet.players} onClose=${() => setSheet(null)} onChallenge=${challengePlayer} onRace=${racePlayer} />` : null}
     ${sheet && sheet.type === 'challenges' ? html`<${ChallengesSheet} onClose=${() => setSheet(null)} onPlay=${playChallenge} />` : null}
     ${sheet && sheet.type === 'fact' ? html`<${FactSheet} key=${'f' + sheet.sid + sheet.i} s=${s} sid=${sheet.sid} i=${sheet.i} onClose=${() => setSheet(null)} openStop=${openStop} />` : null}
     ${news && !room && !sheet ? html`<${NewsSheet} s=${s} go=${go} onClose=${() => setNews(false)} />` : null}

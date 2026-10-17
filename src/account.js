@@ -79,30 +79,23 @@ function cloudRef(uid) {
     remove: () => F.deleteDoc(d),
   };
 }
-const pristine = s => !s.onboarded || (!s.xp && !Object.keys(s.lessons).length);
-function streakLive(st) { return st && (st.last === today() || st.last === dayOffset(-1)) ? st.count || 0 : 0; }
-function streakFromLog(log) {
-  let k = log[today()] ? 0 : -1, count = 0;
-  while (log[dayOffset(k - count)]) count++;
-  return { count, last: count ? dayOffset(k) : null };
-}
-/* Guest progress made on this device + the account's progress: lessons keep the best stars, totals add up. */
+const pristine = s => !s.onboarded || (!totalKm(s) && !Object.keys(s.lessons).length);
+/* Guest progress made on this device + the account's progress: lessons keep the best stars, totals add up.
+   Trip kilometres follow from the merged stars; detours and challenge results add up. */
 function mergeStates(acc, guest) {
   const m = $clone(acc);
   m.onboarded = acc.onboarded || guest.onboarded;
   if (!acc.onboarded) { m.start = guest.start; m.goal = guest.goal; m.settings = $clone(guest.settings); }
-  m.xp = (acc.xp || 0) + (guest.xp || 0);
+  m.extraKm = (Number(acc.extraKm) || 0) + (Number(guest.extraKm) || 0);
+  m.detour = [acc.detour, guest.detour].filter(d => d && d.d === today()).reduce((a, d) => ({ d: d.d, n: a.n + d.n }), { d: today(), n: 0 });
   for (const [k, v] of Object.entries(guest.lessons)) m.lessons[k] = Math.max(m.lessons[k] || 0, v);
   for (const k of Object.keys(guest.checkpoints)) if (guest.checkpoints[k]) m.checkpoints[k] = true;
   for (const k of Object.keys(guest.cpTried)) if (guest.cpTried[k]) m.cpTried[k] = true;
   for (const [k, v] of Object.entries(guest.ach)) m.ach[k] = m.ach[k] ? Math.min(m.ach[k], v) : v;
   for (const [k, v] of Object.entries(guest.mistakes)) if (!m.mistakes[k] || (v.t || 0) > (m.mistakes[k].t || 0)) m.mistakes[k] = v;
   for (const [d, v] of Object.entries(guest.log)) m.log[d] = (m.log[d] || 0) + v;
-  ['answers', 'correct', 'talks', 'ownGood', 'perfect', 'fixed'].forEach(k => { m.stats[k] = (acc.stats[k] || 0) + (guest.stats[k] || 0); });
-  ['bestCombo', 'quickBest'].forEach(k => { m.stats[k] = Math.max(acc.stats[k] || 0, guest.stats[k] || 0); });
-  const fromLog = streakFromLog(m.log);
-  const best = [acc.streak, guest.streak, fromLog].sort((a, b) => streakLive(b) - streakLive(a))[0];
-  m.streak = { count: best.count || 0, last: best.last || null, best: Math.max(acc.streak.best || 0, guest.streak.best || 0, fromLog.count) };
+  ['answers', 'correct', 'talks', 'ownGood', 'perfect', 'fixed', 'typed', 'races', 'raceWins'].forEach(k => { m.stats[k] = (acc.stats[k] || 0) + (guest.stats[k] || 0); });
+  ['bestCombo', 'quickBest', 'bestWpm'].forEach(k => { m.stats[k] = Math.max(acc.stats[k] || 0, guest.stats[k] || 0); });
   if (!m.profile.name && guest.profile.name) m.profile = $clone(guest.profile);
   m.createdAt = Math.min(acc.createdAt || Date.now(), guest.createdAt || Date.now());
   return m;

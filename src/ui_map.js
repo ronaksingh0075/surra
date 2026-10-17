@@ -281,10 +281,11 @@ function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact
       ${ORDER.map(sid => {
         const done = stopDone(s, sid), open = stopOpen(s, sid), [x, y] = P[sid];
         return html`<g class=${cx('m-stop', done ? 'done' : open ? 'open' : 'locked')} role=${interactive ? 'button' : null} tabindex=${interactive && k >= 1.6 ? 0 : null}
-            aria-label=${interactive ? `${STOPS[sid].city}${done ? ', stamped' : open ? '' : ', locked'}` : null}
+            aria-label=${interactive ? `${STOPS[sid].city}${done ? ', stamped' : open ? '' : ', locked'}${isSafe(sid) ? ', safehouse' : ''}` : null}
             onClick=${interactive && onStop ? tap(() => onStop(sid)) : null} onKeyDown=${interactive && onStop ? keyAct(() => onStop(sid)) : null}>
           <circle class="hit" cx=${x} cy=${y} r=${15 * u} />
           <circle class="dot" cx=${x} cy=${y} r=${(done ? 6 : 5) * u} stroke-width=${(done ? 2.4 : 2) * u} />
+          ${isSafe(sid) && (pmode || k >= 1.3) ? html`<g class="m-safe" transform=${`translate(${x + 8 * u} ${y - 9 * u}) scale(${u})`} aria-hidden="true"><circle r="7" /><${GIcon} n="shield" x="-5.5" y="-5.6" s="11" w="2.4" /></g>` : null}
           ${lay.labels[sid] ? html`<text class="m-name" x=${x + (lay.labels[sid] === 'r' ? 9 : -9) * u} y=${y + 4.2 * u} text-anchor=${lay.labels[sid] === 'r' ? 'start' : 'end'} font-size=${12.5 * u} stroke-width=${3.4 * u}>${STOPS[sid].city}</text>` : null}
         </g>`;
       })}
