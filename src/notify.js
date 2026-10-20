@@ -48,6 +48,7 @@ function nextLabel(s) {
   if (a.type === 'lesson') { const leg = legOf(s); return `${STOPS[a.sid].city} · ${LESSON_META[a.lesson].en}${leg.sid === a.sid && leg.left ? ` · ${leg.left} km to go` : ''}`; }
   if (a.type === 'checkpoint') return `the ${LEVELS[a.li].id} checkpoint`;
   if (a.type === 'boss') return `${STOPS[a.sid].city} · Boss battle with ${BOSSES[a.sid].name}`;
+  if (a.type === 'climb') return climbSummit(s) ? 'Kebnekaise · the rematch with the queen' : `Kebnekaise · the climb from ${campName(climbRec(s).camp || 0)}`;
   return 'a review round';
 }
 const profileName = s => ((s.profile && s.profile.name) || '').trim().slice(0, 24) || 'Traveller';
@@ -283,20 +284,26 @@ function promptFor(s, a, P) {
 }
 
 /* ---------- what's new: shown once to people who were already on the road before this release */
-const NEWS = {
-  id: '1.7',
-  items: [
+// newest first; the sheet shows every release since the one a player last saw
+const NEWS_RELEASES = [
+  { id: '1.8', items: [
+    { icon: 'mountain', t: 'Kebnekaise', d: 'Reach Kiruna and climb Sweden’s highest mountain: right answers take you up, mistakes and running out of time make you slip, and two camps catch your fall.' },
+    { icon: 'crown', t: 'The queen of the mountain', d: 'Fjälldrottningen waits on the north top, 2,097 m up. Beat her in a typing race for 100 km and the last badge.' },
+  ] },
+  { id: '1.7', items: [
     { icon: 'crown', t: 'Boss bees', d: 'Malte, Gösta, Stina and Ulla guard the four safehouses. Answer eight replies and type their motto before they reach the blomma to travel on, and win 50 km.' },
     { icon: 'road', t: 'Your road stays open', d: 'Already past a safehouse? Nothing is locked. Challenge its boss any time from the city for the kilometres and the badge.' },
-  ],
-  older: [
+  ] },
+  { id: '1.6', items: [
     { icon: 'road', t: 'Journey kilometres', d: 'XP and streaks are gone. Lessons now cover the real road between cities, and the race is ranked by kilometres.' },
     { icon: 'swords', t: 'Kilometres at stake', d: 'Challenge anyone within two cities as often as you like. Win and you gain a share of the road between you, lose and it comes off your total.' },
     { icon: 'shield', t: 'Safehouses', d: 'Malmö, Göteborg, Stockholm and Umeå are safe: no challenges in or out, so you can learn without losing kilometres.' },
     { icon: 'flower', t: 'Typing races', d: 'Race a player in your city, or the pacer bees, to the blomma. Plus typing practice with å, ä, ö and é.' },
     { icon: 'check', t: 'Fairer choices', d: 'Reply options no longer give the answer away by their length, so challenges are about Swedish.' },
-  ],
-};
+  ] },
+];
+const versionAfter = (a, b) => { const x = String(a).split('.').map(Number), y = String(b || '0').split('.').map(Number); return (x[0] - (y[0] || 0) || (x[1] || 0) - (y[1] || 0)) > 0; };
+const NEWS = { id: NEWS_RELEASES[0].id, since: seen => NEWS_RELEASES.filter(r => versionAfter(r.id, seen)).flatMap(r => r.items) };
 const newsDue = s => BUILD === 'pwa' && s.onboarded && (s.settings.news || '') !== NEWS.id;
 const markNews = () => update(x => { x.settings.news = NEWS.id; });
 

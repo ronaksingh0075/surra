@@ -1,7 +1,7 @@
 {
   "name": "surra",
   "private": true,
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Surra: Swedish conversation practice from A1 to C1, as an installable web app.",
   "scripts": {
     "validate": "node tools/validate.js",

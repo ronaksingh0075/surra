@@ -100,6 +100,10 @@ function mergeStates(acc, guest) {
     const a = m.bosses[k] || {}, won = [a.won, v.won].filter(Boolean), best = [a.best, v.best].filter(Boolean);
     m.bosses[k] = { won: won.length ? Math.min(...won) : 0, tries: (a.tries || 0) + (v.tries || 0), ...(best.length ? { best: Math.min(...best) } : {}) };
   }
+  // Kebnekaise: the highest camp and best height on either device, the earliest summit and win
+  const ca = acc.climb || {}, cg = guest.climb || {}, first = (x, y) => (x && y ? Math.min(x, y) : x || y || 0);
+  m.climb = { camp: Math.max(ca.camp || 0, cg.camp || 0), best: Math.max(ca.best || 0, cg.best || 0), tries: (ca.tries || 0) + (cg.tries || 0),
+    summit: first(ca.summit, cg.summit), queen: first(ca.queen, cg.queen), queenTries: (ca.queenTries || 0) + (cg.queenTries || 0) };
   if (acc.intro && guest.intro) m.extraKm -= Number(guest.intro.km) || 0;
   m.intro = acc.intro || guest.intro || null;
   ['answers', 'correct', 'talks', 'ownGood', 'perfect', 'fixed', 'typed', 'races', 'raceWins'].forEach(k => { m.stats[k] = (acc.stats[k] || 0) + (guest.stats[k] || 0); });

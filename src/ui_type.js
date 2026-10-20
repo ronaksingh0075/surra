@@ -102,9 +102,10 @@ function RaceBee({ lane }) {
 function BeeTrack({ lanes }) {
   return html`<div class="beetrack" role="img" aria-label=${lanes.map(l => `${l.name}: ${Math.round(Math.min(1, l.at) * 100)} percent`).join(', ')}>
     <div class="bt-head"><span>Start</span><span class="bt-goal"><${Icon} n="flower" s=${15} />Blomma</span></div>
-    ${lanes.map(l => html`<div class=${cx('lane', l.me && 'me', l.at >= 1 && 'done')} key=${l.id}>
+    ${lanes.map(l => html`<div class=${cx('lane', l.me && 'me', l.at >= 1 && 'done', l.zoom && 'zoom')} key=${l.id}>
       <div class="lane-name"><b>${l.name}</b>${l.sub ? html`<span>${l.sub}</span>` : null}</div>
       <div class="lane-road"><span class="lane-flower"><${Icon} n="flower" s=${20} /></span>
+        ${l.trail ? html`<span class="lane-trail" style=${`width:${(Math.min(1, Math.max(0, l.at)) * 100).toFixed(2)}%`}></span>` : null}
         <span class="lane-bee" style=${`left:${(Math.min(1, Math.max(0, l.at)) * 100).toFixed(2)}%`}><${RaceBee} lane=${l} /></span></div>
     </div>`)}
   </div>`;

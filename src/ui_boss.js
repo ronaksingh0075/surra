@@ -1,30 +1,60 @@
-/* ================= Surra UI: NPC bees: Bettan's first race (onboarding) and the boss battles at the safehouses ================= */
+/* ================= Surra UI: NPC bees: the three races of onboarding and the boss battles at the safehouses ================= */
 
-/* ---------- a bee with character: Bettan wears a flower, the bosses wear a crown */
+/* ---------- a bee with character: Bettan wears a bow, Sixten shades, the bosses a crown and the queen a taller one */
+function NpcHat({ id }) {
+  if (id === 'bettan') return html`<g class="bow"><circle cx="6.6" cy="-6.9" r="2.2" /><circle cx="10.6" cy="-7.6" r="2.2" /><circle class="mid" cx="8.6" cy="-7.2" r="1.3" /></g>`;
+  if (id === 'sixten') return html`<g class="shades"><path d="M5.2 -2.6h3.2" /><rect x="8.1" y="-3.9" width="5.2" height="2.9" rx="1.3" /><path class="shine" d="M9.2 -3.1h1.4" /></g>`;
+  if (id === 'queen') return html`<g class="qcrown"><path class="crown" d="M4 -7l-1.4-8.8 3.6 3.2 3-6 3 6 3.6-3.2-1.4 8.8z" />
+    <circle class="tip" cx="2.6" cy="-15.8" r="1" /><circle class="tip" cx="9.2" cy="-18.8" r="1.1" /><circle class="tip" cx="15.8" cy="-15.8" r="1" />
+    <circle class="jewel" cx="9.2" cy="-10.3" r="1.5" /><circle class="jewel b" cx="5.7" cy="-9.4" r=".85" /><circle class="jewel b" cx="12.7" cy="-9.4" r=".85" /></g>`;
+  return html`<path class="crown" d="M4.4 -7.2l-1-6.4 3.2 2.5 2.6-4.2 2.6 4.2 3.2-2.5-1 6.4z" />`;
+}
 function NpcBee({ npc, s = 40 }) {
-  const boss = !!npc && npc.id !== 'bettan';
-  return html`<svg width=${s} height=${s} viewBox="-17 -20 34 34" class=${cx('bee npc', boss && 'boss', npc && npc.tint && 'tint-' + npc.tint)} aria-hidden="true">
+  const id = npc && npc.id, boss = !!id && id !== BETTAN.id && id !== SIXTEN.id;
+  return html`<svg width=${s} height=${s} viewBox="-17 -20 34 34" class=${cx('bee npc', boss && 'boss', id === QUEEN.id && 'queen', npc && npc.tint && 'tint-' + npc.tint)} aria-hidden="true">
     <${BeeShape} />
-    <g class="bee-bob">${boss ? html`<path class="crown" d="M4.4 -7.2l-1-6.4 3.2 2.5 2.6-4.2 2.6 4.2 3.2-2.5-1 6.4z" />`
-      : html`<g class="bow"><circle cx="6.6" cy="-6.9" r="2.2" /><circle cx="10.6" cy="-7.6" r="2.2" /><circle class="mid" cx="8.6" cy="-7.2" r="1.3" /></g>`}</g>
+    <g class="bee-bob"><${NpcHat} id=${id} /></g>
   </svg>`;
 }
 
-/* ---------- onboarding: a first race against Bettan, one short sentence at your level */
-function IntroRace({ level, result, onResult, onNext }) {
+/* ---------- onboarding: three races at your level. Bettan, then her big brother Sixten, then a bee nobody beats */
+const HEAT_COPY = {
+  bettan: { t: 'Race Bettan to the blomma', d: 'Your first rival, a Swedish bee from Malmö. Type the sentence before she reaches the flower.', sub: 'Swedish bee',
+    win: ['You beat Bettan!', 'That’s every race in Surra: type the Swedish, word by word. Bettan says lycka till.'],
+    lose: ['Bettan got there first', 'She’s had a lot of practice. Her big brother is up next, and he’s quicker.'] },
+  sixten: { t: 'Sixten, her big brother', d: 'Faster than Bettan, and he doesn’t wait for anyone. Same rules: type it before he reaches the flower.', sub: 'Big brother',
+    win: ['You beat Sixten!', 'Not many do that on their first day. But one more bee wants to race.'],
+    lose: ['Sixten got there first', 'He’s quick. You’ll catch him on the road. But one more bee wants to race.'] },
+  queen: { t: 'Fjälldrottningen', d: 'The queen bee of Kebnekaise has flown down from Sweden’s highest mountain to see who’s new. They say she has never lost a race.', sub: 'Queen bee' },
+};
+function IntroGauntlet({ level, onRaced, onDone }) {
   const s = useApp();
-  const [sv, en] = introText(level), text = typeClean(sv), cps = ((BETTAN.wpm[level] || 13) * 5) / 60;
-  const [phase, setPhase] = useState(result && !result.skipped ? 'done' : 'ready'); // ready | countdown | race | done
+  const heats = useMemo(() => introHeats(level), [level]);
+  const [hi, setHi] = useState(0);
+  const [res, setRes] = useState([]); // per race: { won, wpm, ms, km }
+  const [phase, setPhase] = useState('ready'); // ready | countdown | race | whoosh (the queen only) | done
   const [goAt, setGoAt] = useState(0);
   const [now, setNow] = useState(Date.now());
-  const [view, setView] = useState({ me: result && result.won ? 1 : 0, npc: result && !result.won && !result.skipped ? 1 : 0 });
-  const R = useRef({ me: 0, npc: 0, last: 0, over: false });
-  const end = (won, r) => {
+  const [view, setView] = useState({ me: 0, npc: 0, zoom: false });
+  const R = useRef({ me: 0, npc: 0, last: 0, over: false, zoom: false });
+  const T = useRef([]);
+  useEffect(() => () => T.current.forEach(clearTimeout), []);
+  const heat = heats[hi], bee = heat.bee, queen = !!heat.queen, copy = HEAT_COPY[bee.id];
+  const [sv, en] = heat.text, text = typeClean(sv), r = res[hi];
+  const top = () => { try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } };
+  const end = (won, tr) => {
     if (R.current.over) return;
     R.current.over = true;
-    setView({ me: won ? 1 : R.current.me, npc: R.current.npc });
-    setPhase('done'); sfx(won ? 'level' : 'done');
-    onResult({ won, wpm: r ? r.wpm : 0, ms: r ? r.ms : Date.now() - goAt });
+    if (queen) { won = false; R.current.npc = 1; } // nobody beats the queen on day one
+    const out = { won, wpm: tr ? tr.wpm : 0, ms: tr ? tr.ms : Math.max(0, Date.now() - goAt) };
+    let km = 0;
+    const prev = S().intro && S().intro.bees && S().intro.bees[bee.id]; // raced before a reload: the head start is already counted
+    update(x => { km = introRecord(x, bee.id, out, heat.km(out)); if (out.wpm) x.stats.bestWpm = Math.max(x.stats.bestWpm || 0, out.wpm); });
+    setRes(rr => { const n = rr.slice(); n[hi] = { ...out, km: km || (prev && prev.km) || 0 }; return n; });
+    setView({ me: won ? 1 : R.current.me, npc: R.current.npc, zoom: R.current.zoom });
+    if (onRaced) onRaced();
+    if (queen) { setPhase('whoosh'); T.current.push(setTimeout(() => { setPhase('done'); sfx('done'); top(); }, 1300)); }
+    else { setPhase('done'); sfx(won ? 'level' : 'done'); }
   };
   useEffect(() => {
     if (phase !== 'countdown' && phase !== 'race') return;
@@ -32,38 +62,84 @@ function IntroRace({ level, result, onResult, onNext }) {
       const n = Date.now(); setNow(n);
       if (phase !== 'race' || R.current.over) return;
       const dt = R.current.last ? n - R.current.last : 0; R.current.last = n;
-      R.current.npc = npcStep(R.current.npc, dt, cps, text.length, true, R.current.me);
-      setView({ me: R.current.me, npc: R.current.npc });
+      if (queen) {
+        const q = queenStep(R.current.npc, dt, n - goAt, R.current.me, R.current.zoom);
+        if (q.zooming && !R.current.zoom) sfx('whoosh');
+        R.current.npc = q.at; R.current.zoom = q.zooming;
+      } else R.current.npc = npcStep(R.current.npc, dt, heat.cps, text.length, heat.band, R.current.me);
+      setView({ me: R.current.me, npc: R.current.npc, zoom: R.current.zoom });
       if (R.current.npc >= 1) end(false, null);
-    }, 100);
+    }, queen ? 50 : 100);
     return () => clearInterval(t);
-  }, [phase]);
+  }, [phase, hi]);
   useEffect(() => { if (phase === 'countdown' && goAt && now >= goAt) { R.current.last = Date.now(); setPhase('race'); } }, [now, phase, goAt]);
-  const start = () => { R.current = { me: 0, npc: 0, last: 0, over: false }; setView({ me: 0, npc: 0 }); setGoAt(Date.now() + 3000); setNow(Date.now()); setPhase('countdown'); };
+  const start = () => { R.current = { me: 0, npc: 0, last: 0, over: false, zoom: false }; setView({ me: 0, npc: 0, zoom: false }); setGoAt(Date.now() + 3000); setNow(Date.now()); setPhase('countdown'); };
+  const next = () => { R.current = { me: 0, npc: 0, last: 0, over: false, zoom: false }; setView({ me: 0, npc: 0, zoom: false }); setHi(hi + 1); setPhase('ready'); top(); };
   const lanes = [
-    { id: 'me', name: 'You', me: true, at: view.me, p: { ...s.profile, avatar: s.profile.avatar || 'bee' }, sub: result && result.wpm ? `${result.wpm} wpm` : null },
-    { id: 'bettan', name: 'Bettan', npc: BETTAN, at: view.npc, sub: 'Swedish bee' },
+    { id: 'me', name: 'You', me: true, at: view.me, p: { ...s.profile, avatar: s.profile.avatar || 'bee' }, sub: r && r.wpm ? `${r.wpm} wpm` : null },
+    { id: bee.id, name: bee.lane || bee.name, npc: bee, at: view.npc, sub: copy.sub, zoom: queen && view.zoom, trail: queen && view.zoom },
   ];
   const cd = Math.ceil((goAt - now) / 1000);
-  return html`<div class="onb-race">
-    <div class="npc-intro"><${NpcBee} npc=${BETTAN} s=${64} />
-      <div class="tx"><b>Race Bettan to the blomma</b>
-        <span>Your first rival, a Swedish bee from Malmö. Type the sentence before she reaches the flower.</span></div></div>
+  const strip = html`<ol class="heats" aria-label="Three races">${heats.map((h, i) => {
+    const rr = res[i], known = !h.queen || i <= hi; // the third bee is a mystery until her race
+    return html`<li class=${cx('heat', i === hi && 'on', rr && (rr.won ? 'won' : 'lost'), h.queen && 'q')} key=${h.bee.id} aria-label=${known ? `${h.bee.name}${rr ? (rr.won ? ', won' : ', lost') : ''}` : 'A mystery bee'}>
+      <span class="hb">${known ? html`<${NpcBee} npc=${h.bee} s=${30} />` : html`<span class="mystery" aria-hidden="true">?</span>`}</span>
+      <span class="hn">${known ? h.bee.lane || h.bee.name : '???'}</span>
+      ${rr ? html`<span class="hr">${rr.won ? html`<${Icon} n="check" s=${12} w=${3} />Won` : 'Lost'}</span>` : null}
+    </li>`;
+  })}</ol>`;
+  if (queen && phase === 'done') return html`<div class="card onb-race night" key="teaser">${strip}<${KebneTeaser} level=${level} onDone=${() => onDone({})} /></div>`;
+  return html`<div class=${cx('card onb-race', queen && 'night')} key=${'heat' + hi}>
+    ${strip}
+    ${phase === 'ready' ? html`<div class=${cx('npc-intro', queen && 'qreveal')}><${NpcBee} npc=${bee} s=${queen ? 84 : 64} />
+      <div class="tx"><span class="eyebrow">Race ${hi + 1} of 3${queen ? ' · Boss bee' : ''}</span><b>${copy.t}</b><span>${copy.d}</span></div></div>` : null}
     <${BeeTrack} lanes=${lanes} />
     ${phase === 'countdown' ? html`<div class="race-count num" aria-live="assertive">${cd > 0 ? cd : 'Kör!'}</div>` : null}
-    ${phase !== 'done' ? html`<${TypeBox} text=${text} easy=${true} live=${phase === 'race'} startAt=${goAt} label="Type the sentence"
-        onProgress=${p => { R.current.me = p.chars / p.total; setView({ me: R.current.me, npc: R.current.npc }); }} onDone=${r => end(true, r)} />
+    ${phase === 'whoosh' ? html`<div class="race-count whoosh" aria-live="assertive">Whoosh!</div>` : null}
+    ${phase !== 'done' && phase !== 'whoosh' ? html`<${TypeBox} key=${'tb' + hi} text=${text} easy=${true} live=${phase === 'race'} startAt=${goAt} label="Type the sentence"
+        onProgress=${p => { R.current.me = p.chars / p.total; setView({ me: R.current.me, npc: R.current.npc, zoom: R.current.zoom }); }} onDone=${tr => end(true, tr)} />
       <p class="faint onb-en">Means: ${en}</p>` : null}
-    ${phase === 'ready' ? html`<div class="actions"><button class="btn primary wide" onClick=${start}><${Icon} n="flower" s=${20} />Start the race</button>
-      <span class="faint onb-hint">Letter help is on: a, o and e count for å, ä and ö.</span>
-      <button class="linkbtn" onClick=${() => { onResult({ skipped: true }); onNext(); }}>Skip the race</button></div>` : null}
-    ${phase === 'done' && result ? html`<div class=${cx('onb-result', result.won ? 'win' : 'lose')} role="status">
-        <b class="display">${result.won ? 'You beat Bettan!' : 'Bettan got there first'}</b>
-        <span class="num">${result.won ? `${result.wpm} wpm · ` : ''}+${result.km || 0} km head start</span>
-        <p>${result.won ? 'That’s every race in Surra: type the Swedish, word by word. Bettan says lycka till on the road.' : 'She’s had a lot of practice. The pacer bees in Practice are always up for a rematch.'}</p>
+    ${phase === 'ready' ? html`<div class="actions"><button class="btn primary wide" onClick=${start}><${Icon} n=${queen ? 'crown' : 'flower'} s=${20} />${queen ? 'Race the queen' : 'Start the race'}</button>
+      ${hi === 0 ? html`<span class="faint onb-hint">Letter help is on: a, o and e count for å, ä and ö.</span>` : null}
+      <button class="linkbtn" onClick=${() => onDone({ skipped: true })}>Skip the races</button></div>` : null}
+    ${phase === 'done' && r ? html`<div class=${cx('onb-result', r.won ? 'win' : 'lose')} role="status">
+        <b class="display">${r.won ? copy.win[0] : copy.lose[0]}</b>
+        <span class="num">${r.won && r.wpm ? `${r.wpm} wpm · ` : ''}${r.km ? `+${r.km} km head start` : 'No kilometres this time'}</span>
+        <p>${r.won ? copy.win[1] : copy.lose[1]}</p>
       </div>
-      <div class="actions"><button class="btn primary wide" onClick=${onNext}>Next<${Icon} n="arrowR" s=${20} /></button>
-        <button class="linkbtn" onClick=${start}>Race again</button></div>` : null}
+      <div class="actions"><button class="btn primary wide" onClick=${next}>${hi === 0 ? html`Next: ${SIXTEN.name}` : 'One more bee…'}<${Icon} n="arrowR" s=${20} /></button>
+        <button class="linkbtn" onClick=${() => onDone({ skipped: true })}>Skip the races</button></div>` : null}
+  </div>`;
+}
+
+/* ---------- after the queen: where she lives, and the road there */
+function KebneTeaser({ level, onDone }) {
+  const s = useApp(), head = (s.intro && s.intro.km) || 0;
+  return html`<div class="teaser" role="status">
+    <${KebneScene} mode="teaser" label="Kebnekaise at night under the northern lights, with the queen bee landing on the summit" />
+    <div class="eyebrow">Fjälldrottningen wins</div>
+    <h2 class="display">Nobody beats the queen. Yet.</h2>
+    <p class="teaser-p">She lives on top of Kebnekaise, Sweden’s highest mountain, at the far end of the road beside Kiruna. Travel north one conversation at a time, climb to the summit and race her again. She’ll be waiting.</p>
+    <${RoadToKiruna} level=${level} />
+    <div class="motto"><span class="sp-lab"><${Icon} n="crown" s=${14} />Her motto, and your race on the summit</span><b class="sv" lang="sv">${QUEEN.motto}</b><span>${QUEEN.mottoEn} ${QUEEN.note}</span></div>
+    ${head ? html`<p class="teaser-km num"><${Icon} n="road" s=${17} />+${head} km head start</p>` : null}
+    <button class="btn primary wide onb-next" onClick=${onDone}>Start the road to Kiruna<${Icon} n="arrowR" s=${20} /></button>
+  </div>`;
+}
+// the five regions from your first city to Kiruna, with Kebnekaise at the end
+function RoadToKiruna({ level }) {
+  const li = Math.max(0, LEVEL_IDS.indexOf(level)), sid = LEVELS[li].stops[0], prev = ORDER[ORDER.indexOf(sid) - 1];
+  const left = ROUTE_KM - (prev ? CUM_KM[prev] : 0), X = i => 22 + i * 64, x0 = X(li), x1 = 336, len = x1 - x0;
+  return html`<div class="road2k">
+    <svg viewBox="0 0 360 70" role="img" aria-label=${`${fmtKm(left)} from ${STOPS[sid].city} to Kiruna, then up Kebnekaise`}>
+      <path class="r2-base" d="M22 34H336" />
+      <path class="r2-road" d=${`M${x0} 34H${x1}`} style=${`stroke-dasharray:${len};stroke-dashoffset:${len}`} />
+      ${LEVELS.map((L, i) => html`<g class=${cx('r2-stop', i < li && 'past', i === li && 'here')} key=${L.id}><circle cx=${X(i)} cy="34" r=${i === li ? 6 : 4.5} /><text x=${X(i)} y="60">${L.id}</text></g>`)}
+      <g class="r2-peak" transform="translate(336 34)"><path class="m" d="M-15 9L0-15 15 9z" /><path class="sn" d="M-5.2-6.6L0-15l5.2 8.4-2.6-1.5L0-5.5l-2.5-2.6z" />
+        <path class="cr" d="M-5-21.5l-.8-5 2.6 2 3.2-4.3 3.2 4.3 2.6-2-.8 5z" /></g>
+      <g class="r2-you" transform=${`translate(${x0} 16)`}><text y="-2">${STOPS[sid].city}</text></g>
+    </svg>
+    <p><b class="num">${fmtKm(left)}</b> from ${STOPS[sid].city} to Kiruna, then ${fmtN(CLIMB.top - CLIMB.base)} m up.</p>
   </div>`;
 }
 
@@ -230,12 +306,13 @@ function BossRow({ s, sid, start, next }) {
   </button>`;
 }
 function BossList({ s, start, openStop }) {
-  const list = Object.keys(BOSSES).filter(sid => stopOpen(s, sid));
-  if (!list.length) return null;
+  const list = Object.keys(BOSSES).filter(sid => stopOpen(s, sid)), all = Object.keys(BOSSES).length + 1;
+  const won = Object.keys(BOSSES).filter(sid => bossWon(s, sid)).length + (climbWon(s) ? 1 : 0);
   return html`<section class="card" style="margin-top:16px">
-    <div class="sec-head"><h2 class="display">Boss bees</h2><span class="chip glow num">${Object.keys(BOSSES).filter(sid => bossWon(s, sid)).length}/${Object.keys(BOSSES).length}</span></div>
-    <p class="muted sec-sub">Each safehouse has a boss who guards the road out. Beat them for ${KM.boss} km each, or rematch for fun.</p>
+    <div class="sec-head"><h2 class="display">Boss bees</h2><span class="chip glow num">${won}/${all}</span></div>
+    <p class="muted sec-sub">Each safehouse has a boss who guards the road out: beat them for ${KM.boss} km each, or rematch for fun. The queen waits on top of Kebnekaise.</p>
     ${list.map(sid => html`<${BossRow} s=${s} sid=${sid} start=${start} next=${false} />`)}
-    ${Object.keys(BOSSES).filter(sid => !stopOpen(s, sid)).length ? html`<p class="faint" style="font-size:13px;margin-top:8px">More bosses wait further up the road.</p>` : null}
+    ${Object.keys(BOSSES).filter(sid => !stopOpen(s, sid)).length ? html`<p class="faint" style="font-size:13px;margin:8px 0">More bosses wait further up the road.</p>` : null}
+    <${ClimbRow} s=${s} start=${start} next=${false} />
   </section>`;
 }

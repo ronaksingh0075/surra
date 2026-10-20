@@ -193,7 +193,7 @@ function NewsSheet({ s, go, onClose }) {
       <div style="min-width:0"><div class="eyebrow">Surra ${NEWS.id}</div><h2>What's new</h2></div>
       <button class="iconbtn close" onClick=${close} aria-label="Close"><${Icon} n="close" /></button>
     </div>
-    <ul class="news">${[...NEWS.items, ...(NEWS.older && (s.settings.news || '') < '1.6' ? NEWS.older : [])].map(it => html`<li><span class="news-i"><${Icon} n=${it.icon} s=${20} /></span><span><b>${it.t}</b><span>${it.d}</span></span></li>`)}</ul>
+    <ul class="news">${NEWS.since(s.settings.news).map(it => html`<li><span class="news-i"><${Icon} n=${it.icon} s=${20} /></span><span><b>${it.t}</b><span>${it.d}</span></span></li>`)}</ul>
     <div class="actions news-acts">
       ${cta ? html`<button class="btn primary wide" disabled=${busy} onClick=${cta[1]}>${cta[0]}<${Icon} n="arrowR" s=${18} /></button>` : null}
       <button class=${cx('btn', 'wide', cta ? 'ghost' : 'primary')} onClick=${close}>${cta ? 'Maybe later' : 'Got it'}</button>

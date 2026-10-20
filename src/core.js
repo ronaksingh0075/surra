@@ -48,6 +48,8 @@ const ACH = [
   { id: 'letters', sv: 'Prickfri', en: 'Three stars in the å, ä, ö drill', icon: 'keyboard' },
   { id: 'boss1', sv: 'Bossbesegrare', en: 'Beat a boss bee', icon: 'crown' },
   { id: 'boss4', sv: 'Fyra kronor', en: 'Beat all four boss bees', icon: 'crown' },
+  { id: 'summit', sv: 'Toppen', en: 'Climb to the top of Kebnekaise', icon: 'mountain' },
+  { id: 'queen', sv: 'Fjällmästare', en: 'Beat Fjälldrottningen on the summit', icon: 'crown' },
   { id: 'factsAll', sv: 'Allvetare', en: 'Unlock all 80 facts', icon: 'book' },
   { id: 'night', sv: 'Nattuggla', en: 'Practise after 22:00', icon: 'moon' },
   { id: 'morning', sv: 'Morgonpigg', en: 'Practise before 07:00', icon: 'sun' },
@@ -79,7 +81,7 @@ const LS_KEY = 'surra.progress.v1';
 function freshState() {
   return {
     v: 1, kmv: 1, onboarded: false, start: 'A2', goal: 60,
-    extraKm: 0, detour: { d: '', n: 0 }, log: {}, lessons: {}, checkpoints: {}, cpTried: {}, mistakes: {}, ach: {}, bosses: {}, intro: null,
+    extraKm: 0, detour: { d: '', n: 0 }, log: {}, lessons: {}, checkpoints: {}, cpTried: {}, mistakes: {}, ach: {}, bosses: {}, intro: null, climb: {},
     stats: { answers: 0, correct: 0, bestCombo: 0, talks: 0, ownGood: 0, quickBest: 0, perfect: 0, fixed: 0, typed: 0, bestWpm: 0, races: 0, raceWins: 0 },
     settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto', news: '', snooze: {}, letters: 'easy', spoken: true },
     profile: { name: '', avatar: 'bee', color: 'fjord' }, owner: null,
@@ -220,14 +222,16 @@ function nextAction(s) {
       const nextStarted = nx && (starsOf(s, nx, 'learn') || starsOf(s, nx, 'reply'));
       if (!starsOf(s, sid, 'talk') && !nextStarted && !(k === L.stops.length - 1 && s.cpTried[L.id])) return { type: 'lesson', sid, lesson: 'talk' };
       if (BOSSES[sid] && !bossClear(s, sid)) return { type: 'boss', sid };
+      if (sid === CLIMB.sid && !climbSummit(s)) return { type: 'climb', sid }; // Kebnekaise, once you reach Kiruna
     }
     return { type: 'checkpoint', li };
   }
+  if (climbOpen(s) && !climbWon(s)) return { type: 'climb', sid: CLIMB.sid }; // the queen waits on the summit for a rematch
   return { type: 'done' };
 }
 function currentStop(s) {
   const a = nextAction(s);
-  if (a.type === 'lesson' || a.type === 'boss') return a.sid;
+  if (a.type === 'lesson' || a.type === 'boss' || a.type === 'climb') return a.sid;
   if (a.type === 'checkpoint') return LEVELS[a.li].stops[3];
   return 'kiruna';
 }
@@ -237,7 +241,7 @@ function levelState(s, li) {
   if (!levelUnlocked(s, li)) return 'locked';
   if (li < startIdx(s)) return 'review';
   const a = nextAction(s);
-  if (((a.type === 'lesson' || a.type === 'boss') && LEVEL_INDEX[a.sid] === li) || (a.type === 'checkpoint' && a.li === li)) return 'current';
+  if ((['lesson', 'boss', 'climb'].includes(a.type) && LEVEL_INDEX[a.sid] === li) || (a.type === 'checkpoint' && a.li === li)) return 'current';
   return 'open';
 }
 function stampState(s, sid) {
@@ -288,6 +292,8 @@ function evalAchievements(s) {
   const bosses = Object.keys(BOSSES).filter(sid => bossWon(s, sid)).length;
   if (bosses >= 1) addAch(s, 'boss1');
   if (bosses >= Object.keys(BOSSES).length) addAch(s, 'boss4');
+  if (climbSummit(s)) addAch(s, 'summit');
+  if (climbWon(s)) addAch(s, 'queen');
   if (s.stats.quickBest >= 15) addAch(s, 'quick15');
   if (s.stats.fixed >= 10) addAch(s, 'fix10');
   LEVEL_IDS.forEach(id => { if (s.checkpoints[id]) addAch(s, 'cp_' + id); });
@@ -526,12 +532,14 @@ function sfx(kind) {
   try {
     AC = AC || new (window.AudioContext || window.webkitAudioContext)();
     if (AC.state === 'suspended') AC.resume();
-    const seq = { ok: [659, 988], bad: [233, 196], done: [523, 659, 784, 1047], level: [392, 523, 659, 784, 1047, 1319], tick: [1175] }[kind] || [440];
+    const seq = { ok: [659, 988], bad: [233, 196], done: [523, 659, 784, 1047], level: [392, 523, 659, 784, 1047, 1319], tick: [1175],
+      climb: [523, 698, 880], slip: [466, 392, 330, 262, 196], whoosh: [330, 415, 523, 659, 831, 1047, 1319, 1661] }[kind] || [440];
+    const soft = kind === 'bad' || kind === 'slip', gap = { bad: 0.13, slip: 0.07, whoosh: 0.032 }[kind] || 0.085;
     const t0 = AC.currentTime + 0.01;
     seq.forEach((f, i) => {
       const o = AC.createOscillator(), g = AC.createGain();
-      o.type = kind === 'bad' ? 'sine' : 'triangle'; o.frequency.value = f;
-      const st = t0 + i * (kind === 'bad' ? 0.13 : 0.085), peak = kind === 'bad' ? 0.09 : 0.07;
+      o.type = soft ? 'sine' : 'triangle'; o.frequency.value = f;
+      const st = t0 + i * gap, peak = soft ? 0.09 : kind === 'whoosh' ? 0.05 : 0.07;
       g.gain.setValueAtTime(0.0001, st); g.gain.exponentialRampToValueAtTime(peak, st + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, st + 0.32);
       o.connect(g); g.connect(AC.destination); o.start(st); o.stop(st + 0.34);
     });

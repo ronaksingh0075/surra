@@ -59,7 +59,8 @@ function mapLayout({ s, k, sc, vb, w, h, cur, interactive, pillW, pillLeft, post
   const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
   const dots = ORDER.map(sid => [sid, [pos[sid][0] - 7, pos[sid][1] - 7, pos[sid][0] + 7, pos[sid][1] + 7]]);
   const [yx, yy] = pos[cur];
-  const taken = [[w - 62, 6, w, 218], ...extra];
+  const [kx, ky] = [(KEBNE_XY[0] - vb[0]) * sc, (KEBNE_XY[1] - vb[1]) * sc];
+  const taken = [[w - 62, 6, w, 218], [kx - 15, ky - 24, kx + 16, ky + 9], ...extra];
   if (you) taken.push(pillLeft ? [yx - 18 - pillW, yy - 23, yx + 12, yy + 8] : [yx - 12, yy - 23, yx + 18 + pillW, yy + 8]);
   const free = (b, own) => !taken.some(o => hit(o, b)) && !dots.some(([sid, d]) => sid !== own && hit(d, b));
   const seen = sid => pos[sid][0] > -60 && pos[sid][0] < w + 60 && pos[sid][1] > -30 && pos[sid][1] < h + 160;
@@ -127,6 +128,22 @@ function PlayerCluster({ c, x, y, u, onTap, tap }) {
   </g>`;
 }
 
+// Kebnekaise on the map, about 70 km west of Kiruna: a crown until the queen is beaten, a flag once you've summited
+const KEBNE_XY = [226, 116];
+function KebneMark({ s, u, k, interactive, onTap, onKey }) {
+  const [x, y] = KEBNE_XY, top = climbSummit(s), won = climbWon(s), open = climbOpen(s);
+  return html`<g class=${cx('m-kebne', open && 'open', top && 'top', won && 'won')} role=${interactive ? 'button' : null} tabindex=${interactive && k >= 1.6 ? 0 : null}
+      aria-label=${interactive ? `Kebnekaise, ${fmtN(CLIMB.top)} m${won ? ', conquered' : top ? ', summited' : ''}` : null} onClick=${onTap} onKeyDown=${onKey}>
+    <path class="kb-path" d=${`M${MAP.cities.kiruna[0]} ${MAP.cities.kiruna[1]}L${x} ${y}`} stroke-width=${1.6 * u} stroke-dasharray=${`${2 * u} ${3.5 * u}`} />
+    <g transform=${`translate(${x} ${y}) scale(${u})`}>
+      <circle class="hit" r="17" cy="-4" />
+      <path class="mt" d="M-12 6L-1.5-10 2.5-4 6-7.5 13 6z" />
+      <path class="sn" d="M-5-4.3L-1.5-10 2-4.6 .4-5.4-1.4-3.6-3.2-5.6z" />
+      ${top ? html`<g class="fl"><path class="pole" d="M-1.5-10v-8" /><path class="cloth" d="M-1.5-18h6.5v4.2h-6.5z" /><path class="cross" d="M.6-18v4.2M-1.5-15.9h6.5" /></g>`
+        : html`<path class="cr" d="M-5.2-13.5l-.9-4.6 2.5 1.7 2.1-3.4 2.1 3.4 2.5-1.7-.9 4.6z" />`}
+    </g>
+  </g>`;
+}
 function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact, players = null, onCluster }) {
   const M = MAP, P = M.cities;
   const box = useRef(null);
@@ -277,6 +294,7 @@ function ZoomMap({ s, interactive = true, focus = null, onStop, onRegion, onFact
           <path class="trip" d=${trip} stroke-width=${roadW} vector-effect=${nonScale} />
           <path class="trip-line" d=${trip} stroke-width="1.2" stroke-dasharray="5 6" vector-effect=${nonScale} />` : null}
       </g>
+      <${KebneMark} s=${s} u=${u} k=${k} interactive=${interactive} onTap=${interactive && onStop ? tap(() => onStop(CLIMB.sid)) : null} onKey=${interactive && onStop ? keyAct(() => onStop(CLIMB.sid)) : null} />
       ${lay.shields.map(({ x, num, kind, sw }) => html`<g class=${cx('shield', kind)} transform=${`translate(${x.mid[0]} ${x.mid[1]}) scale(${u})`} aria-hidden="true"><rect x=${-sw / 2} y="-8.5" width=${sw} height="17" rx="3.5" /><text y="1">${num}</text></g>`)}
       ${ORDER.map(sid => {
         const done = stopDone(s, sid), open = stopOpen(s, sid), [x, y] = P[sid];

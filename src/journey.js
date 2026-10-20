@@ -17,7 +17,7 @@ const SAFEHOUSES = ['malmo', 'goteborg', 'stockholm', 'umea'];
 const KM = {
   share: { learn: 0.3, reply: 0.4, talk: 0.3 }, // of the road into the city, at three stars
   stars: [0, 0.5, 0.75, 1], // 1 star covers half of a lesson's share, 2 stars three quarters
-  life: 20, checkpoint: 50, boss: 50, detourCap: 40,
+  life: 20, checkpoint: 50, boss: 50, summit: 50, queen: 100, detourCap: 40,
   stakeMin: 10, stakeMax: 100, raceStake: 10,
 };
 const CUM_KM = (() => { let t = 0; const o = {}; ORDER.forEach(sid => { t += ROAD_KM[sid] || 0; o[sid] = t; }); return o; })();
@@ -49,6 +49,8 @@ function tripKm(s) {
   }
   for (const id of LEVEL_IDS) if (s.checkpoints[id]) t += KM.checkpoint;
   for (const sid of Object.keys(BOSSES)) if (bossWon(s, sid)) t += KM.boss; // a beaten boss bee (bosses.js)
+  if (climbSummit(s)) t += KM.summit; // the top of Kebnekaise (climb.js)
+  if (climbWon(s)) t += KM.queen; // and the queen beaten up there
   return t;
 }
 const totalKm = s => Math.max(0, Math.round(tripKm(s) + (Number(s.extraKm) || 0)));

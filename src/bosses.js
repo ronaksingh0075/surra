@@ -1,11 +1,27 @@
-/* ================= Surra NPC bees: Bettan (your first race) and the boss bees of the four safehouses =================
-   Bettan races newcomers during onboarding: one short sentence at the level they picked. She keeps the race close
-   (she hurries when you lead and dawdles when she leads), so most first races are won by a whisker.
+/* ================= Surra NPC bees: the three races of onboarding, and the boss bees of the four safehouses =================
+   Onboarding is three short races at the level you picked. Bettan keeps it close (she hurries when you lead and
+   dawdles when she leads), so most first races are won by a whisker. Sixten, her big brother, flies about five words
+   a minute faster and is less forgiving. The third bee is Fjälldrottningen, the queen bee of Kebnekaise: she lets
+   you get ahead, then zooms past, and nobody beats her on day one. She waits on the summit for the rematch (climb.js).
    Each safehouse has a boss bee who guards the road out of the city. A boss battle is a race to the blomma: every
    right reply flies you a tenth of the way, and the boss's motto (real spoken Swedish) is the final stretch. The boss
    flies steadily, a little slower after every loss. Beat the boss to travel past the safehouse and win 50 km.
    Players who were already past a safehouse before bosses existed keep their road open; the boss is optional there. */
-const BETTAN = { id: 'bettan', name: 'Bettan', wpm: { A1: 11, A2: 13, B1: 15, B2: 17, C1: 19 } };
+const BETTAN = { id: 'bettan', name: 'Bettan', wpm: { A1: 11, A2: 13, B1: 15, B2: 17, C1: 19 }, band: { k: 3, lo: 0.55, hi: 1.8 } };
+const SIXTEN = { id: 'sixten', name: 'Sixten', tint: 'fjord', wpm: { A1: 16, A2: 18, B1: 21, B2: 24, C1: 27 }, band: { k: 2, lo: 0.75, hi: 1.35 } };
+const QUEEN = {
+  id: 'queen', name: 'Fjälldrottningen', lane: 'Drottningen', tint: 'aurora', wpm: 30,
+  blurb: "The queen bee of Kebnekaise. She waits on the north top, Sweden's highest point, for anyone who makes it all the way to Kiruna.",
+  motto: 'Den som väntar på något gott väntar aldrig för länge.', mottoEn: 'Good things come to those who wait.',
+  note: 'A Swedish proverb. Word for word: whoever waits for something good never waits too long.',
+};
+const SIXTEN_TEXTS = {
+  A1: ['Jag bor i Malmö och jobbar på ett kafé.', 'I live in Malmö and work at a café.'],
+  A2: ['Kan vi ses på lördag i stället?', 'Can we meet on Saturday instead?'],
+  B1: ['Jag håller inte riktigt med dig där.', "I don't quite agree with you there."],
+  B2: ['Han antydde att det kanske blir försenat.', 'He hinted that it might be delayed.'],
+  C1: ['Vi får se hur det blir, sa hon lugnt.', "We'll see how it goes, she said calmly."],
+};
 const INTRO_TEXTS = {
   A1: ['Hej! Jag heter Bettan och jag älskar fika.', "Hi! My name is Bettan and I love fika."],
   A2: ['Vi ses på stationen klockan sju, okej?', "See you at the station at seven, okay?"],
@@ -13,7 +29,8 @@ const INTRO_TEXTS = {
   B2: ['Det är inte i går vi sågs, eller hur?', "It's been ages since we last met, hasn't it?"],
   C1: ['Det är ingen ko på isen, vi hinner i tid.', "No need to panic, we'll make it in time."],
 };
-const INTRO = { win: 10, lose: 5 }; // head-start kilometres after the first race
+// head-start kilometres, once per bee: Bettan 10 for a win (5 for trying), Sixten 10 for a win. Nobody beats the queen.
+const INTRO = { win: 10, lose: 5, sixten: 10 };
 const BOSSES = {
   malmo: {
     id: 'malte', name: 'Malte', tint: 'falu', time: 120,
@@ -86,9 +103,35 @@ function bossPool(sid) {
 }
 
 /* ---------- pace: how far an NPC bee gets in dt milliseconds
-   Bettan's rubber band: 1 + 3 x your lead, between 0.55 and 1.8 times her base speed. */
+   A rubber band speeds a bee up when you lead and slows it when it leads: 1 + k x your lead, between lo and hi
+   times its base speed. Bettan's band is strong (true means hers), Sixten's is mild, bosses fly steadily. */
 function npcStep(at, dtMs, cps, len, rubber, mine) {
-  const m = rubber ? Math.max(0.55, Math.min(1.8, 1 + 3 * ((mine || 0) - at))) : 1;
+  const b = rubber === true ? BETTAN.band : rubber;
+  const m = b ? Math.max(b.lo, Math.min(b.hi, 1 + b.k * ((mine || 0) - at))) : 1;
   return Math.min(1, at + ((dtMs / 1000) * cps * m) / Math.max(1, len));
 }
+// the queen on day one: she idles until you're a quarter of the way (or 5 s pass), then zooms to the blomma in about
+// a second, always staying ahead of you. No human can type the rest of the sentence that fast.
+const QUEEN_ZOOM = { wait: 0.25, waitMs: 5000, flyMs: 1100, lead: 0.06 };
+function queenStep(at, dtMs, elMs, mine, zooming) {
+  if (!zooming && (mine || 0) < QUEEN_ZOOM.wait && elMs < QUEEN_ZOOM.waitMs) return { at: Math.min(at, 0.04) + (at < 0.04 ? dtMs / 40000 : 0), zooming: false };
+  return { at: Math.min(1, Math.max(at + dtMs / QUEEN_ZOOM.flyMs, (mine || 0) + QUEEN_ZOOM.lead)), zooming: true };
+}
 const introText = level => INTRO_TEXTS[level] || INTRO_TEXTS.A2;
+// the three races of onboarding, at your level
+const introHeats = level => [
+  { bee: BETTAN, text: introText(level), cps: ((BETTAN.wpm[level] || 13) * 5) / 60, band: BETTAN.band, km: r => (r.won ? INTRO.win : INTRO.lose) },
+  { bee: SIXTEN, text: SIXTEN_TEXTS[level] || SIXTEN_TEXTS.A2, cps: ((SIXTEN.wpm[level] || 21) * 5) / 60, band: SIXTEN.band, km: r => (r.won ? INTRO.sixten : 0) },
+  { bee: QUEEN, text: [QUEEN.motto, QUEEN.mottoEn], queen: true, km: () => 0 },
+];
+// record one onboarding race and its head start, once per bee (a 1.7 record holds Bettan's race only). Returns the km added.
+function introRecord(x, bee, r, km) {
+  const old = x.intro, it = old ? { ...old, bees: { ...(old.bees || { bettan: { won: !!old.won, wpm: old.wpm || 0, km: old.km || 0 } }) } } : { at: Date.now(), km: 0, bees: {} };
+  x.intro = it;
+  if (it.bees[bee]) return 0;
+  const add = km > 0 ? addResultKm(x, km) : 0;
+  it.bees[bee] = { won: !!r.won, wpm: r.wpm || 0, km: add };
+  it.km = (it.km || 0) + add;
+  if (bee === BETTAN.id) { it.won = !!r.won; it.wpm = r.wpm || 0; }
+  return add;
+}

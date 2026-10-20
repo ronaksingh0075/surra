@@ -17,6 +17,7 @@ const ICONS = {
   refresh: ['M20 11.5a8 8 0 1 0-2.4 5.6', 'M20 4.5v7h-7'],
   stamp: ['M9.5 3.5h5v5.5l3.5 3v3h-12v-3l3.5-3z', 'M5 19.5h14'],
   mountain: ['M2.5 20l7-11.5 4 6 3-4.5 5 10z'],
+  tent: ['M2 20.5h20', 'M4 20.5L12 7l8 13.5', 'M12 13l-3 7.5', 'M12 13l3 7.5', 'M12 7V3.2l3.6 1.4L12 6'], down: ['M12 4.5v15', 'M6 13.5l6 6 6-6'],
   timer: [circ(12, 13.5, 7.5), 'M12 9.5v4.2l2.6 1.6', 'M9.5 2.5h5'],
   book: ['M12 6.5C10 5 7 4.5 3.5 5v13.5c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5z', 'M12 6.5V20'],
   map: ['M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z', 'M9 4v14', 'M15 6v14'],
@@ -206,6 +207,7 @@ function ContinueCard({ s, startAction, openStop, openRegion }) {
     </section>`;
   }
   if (a.type === 'boss') return html`<${BossCard} s=${s} sid=${a.sid} startAction=${startAction} openStop=${openStop} />`;
+  if (a.type === 'climb') return html`<${ClimbCard} s=${s} startAction=${startAction} openStop=${openStop} />`;
   if (a.type === 'checkpoint') {
     const L = LEVELS[a.li], nx = LEVELS[a.li + 1];
     return html`<section class="card cont" aria-label="Checkpoint">
@@ -219,7 +221,7 @@ function ContinueCard({ s, startAction, openStop, openRegion }) {
   return html`<section class="card cont">
     <div class="eyebrow">Journey complete</div>
     <h2 class="display">Kiruna!</h2>
-    <p class="theme">You've travelled from Malmö to Kiruna. Keep your Swedish sharp with quick replies, reviews and new conversations.</p>
+    <p class="theme">You've travelled from Malmö to Kiruna and beaten the queen on top of Kebnekaise. Keep your Swedish sharp with quick replies, reviews and new conversations.</p>
     <div class="row" style="margin-top:16px"><button class="btn primary" onClick=${() => startAction({ type: 'quick' })}>Play Snabbsvar<${Icon} n="arrowR" s=${20} /></button></div>
   </section>`;
 }
@@ -350,6 +352,7 @@ function StopSheet({ sid, s, onClose, start }) {
       </div>`
       : html`<div class="section lockmsg"><${Icon} n="lock" /><span>${lockReason(s, sid)}</span></div>`}
     ${BOSSES[sid] && open ? html`<div class="section"><span class="eyebrow">Boss bee</span><${BossRow} s=${s} sid=${sid} start=${start} next=${a.type === 'boss' && a.sid === sid} /></div>` : null}
+    ${sid === CLIMB.sid ? html`<div class="section"><span class="eyebrow">Kebnekaise · ${fmtN(CLIMB.top)} m</span><${ClimbRow} s=${s} start=${start} next=${a.type === 'climb'} /></div>` : null}
     <div class="section"><div class="tip"><${Icon} n="bulb" /><span><b>Culture note.</b> ${st.culture}</span></div></div>
     <div class="section"><span class="eyebrow">Did you know? · ${factsUnlocked(s, sid)}/${FACTS[sid].length}</span>
       <div class="factlist">${FACTS[sid].map((f, i) => (i < factsUnlocked(s, sid) ? html`<${FactCard} key=${i} sid=${sid} i=${i} city=${false} />` : html`<${LockedFact} key=${i} sid=${sid} i=${i} />`))}
@@ -1035,10 +1038,10 @@ function Settings({ go, embedded }) {
 /* ---------- onboarding */
 function Onboarding({ done, go }) {
   const s = useApp();
-  const [step, setStep] = useState(0); // 0: your Swedish, 1: a first race against Bettan, 2: your journey
+  const [step, setStep] = useState(0); // 0: your Swedish, 1: three races against the bees, 2: your journey
   const [start, setStart] = useState(s.start || 'A2');
   const [work, setWork] = useState(s.settings.work || 'mix');
-  const [race, setRace] = useState(null);
+  const [raced, setRaced] = useState(false);
   const preview = useMemo(() => withDefaults({ ...freshState(), start }), [start]);
   const startOpts = [
     { v: 'A1', b: 'New to Swedish', t: 'Start in Malmö with greetings and fika.' },
@@ -1048,17 +1051,6 @@ function Onboarding({ done, go }) {
   ];
   const top = () => { try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } };
   const goStep = n => { setStep(n); top(); };
-  // the first race gives a head start, once: 10 km for a win, 5 for trying
-  const raced = r => {
-    if (r.skipped) return;
-    let first = 0;
-    update(x => {
-      if (!x.intro) { const km = addResultKm(x, r.won ? INTRO.win : INTRO.lose); x.intro = { at: Date.now(), won: r.won, wpm: r.wpm || 0, km }; }
-      first = x.intro.km || 0;
-      if (r.wpm) x.stats.bestWpm = Math.max(x.stats.bestWpm || 0, r.wpm);
-    });
-    setRace({ ...r, km: first });
-  };
   const finish = () => { update(x => { x.onboarded = true; x.start = start; x.settings.work = work; x.settings.news = NEWS.id; }); done(); top(); };
   const dots = html`<div class="onb-steps" role="img" aria-label=${`Step ${step + 1} of 3`}>${[0, 1, 2].map(i => html`<span class=${cx('dot', i === step && 'on', i < step && 'done')}></span>`)}</div>`;
   if (step === 0) return html`<div class="wrap"><div class="onb">
@@ -1076,14 +1068,14 @@ function Onboarding({ done, go }) {
   </div></div>`;
   if (step === 1) return html`<div class="wrap"><div class="onb">
     ${dots}
-    <div class="card"><${IntroRace} key=${start} level=${start} result=${race} onResult=${raced} onNext=${() => goStep(2)} /></div>
-    ${race ? null : html`<button class="linkbtn onb-back" onClick=${() => goStep(0)}>Back</button>`}
+    <${IntroGauntlet} key=${start} level=${start} onRaced=${() => setRaced(true)} onDone=${() => goStep(2)} />
+    ${raced ? null : html`<button class="linkbtn onb-back" onClick=${() => goStep(0)}>Back</button>`}
   </div></div>`;
   return html`<div class="wrap"><div class="onb">
     ${dots}
     <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:18px">
       <div class="card"><span class="eyebrow">How the race works</span>
-        <p class="muted" style="font-size:14px;margin-top:8px">Every lesson covers real road between cities, from 30 km into Malmö to 360 km into Umeå, and the players race is ranked by kilometres. Boss bees guard the four safehouses: beat them to travel on.</p>
+        <p class="muted" style="font-size:14px;margin-top:8px">Every lesson covers real road between cities, from 30 km into Malmö to 360 km into Umeå, and the players race is ranked by kilometres. Boss bees guard the four safehouses: beat them to travel on. At the end of the road, the queen waits on top of Kebnekaise.</p>
         <span class="eyebrow" style="display:block;margin-top:18px">Your field</span>
         <div style="margin-top:10px"><${Seg} label="Your field" value=${work} options=${[{ v: 'mix', l: 'Mix' }, { v: 'general', l: 'Office' }, { v: 'life', l: 'Life sciences' }]} onChange=${setWork} /></div>
         <p class="muted" style="font-size:13.5px;margin-top:8px">${WORK_HELP[work]}</p>

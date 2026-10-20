@@ -956,3 +956,236 @@ p { margin: 0; }
 .bossrow[disabled] { opacity: .6; cursor: default; }
 .lessonrow .li.npc-li { background: var(--glow-soft); }
 .room.boss .lane-bee .bee.npc { margin-bottom: 2px; }
+
+/* ---------- 1.8: three bees, the queen and Kebnekaise */
+/* a night palette for the queen's race and the mountain, the same in light and dark mode */
+.onb-race.night, .room.climb {
+  --bg: #16122A; --bg-2: #1C1733; --surface: #221C3B; --surface-2: #2B2448; --ink: #F8EDE0; --ink-2: #BDAFC4; --ink-3: #85799A; --line: #3A3157;
+  --glow: #F6B44E; --glow-2: #FFC874; --glow-ink: #261804; --glow-soft: #4A3620; --falu: #EC7A64; --moss: #7CCB8F; --moss-soft: #1D3A2A;
+  --lingon: #F57E93; --lingon-soft: #4B2134; --aurora-a: #4FE6A6; --aurora-b: #9C7BFF; --gold: #F6B44E; --gold-2: #FFC874;
+  --shadow: 0 1px 0 rgba(0, 0, 0, .25), 0 14px 32px -18px rgba(0, 0, 0, .8);
+  color: var(--ink); color-scheme: dark;
+}
+.onb-race.night { position: relative; overflow: hidden; background: radial-gradient(130% 70% at 50% 0%, #2C2263 0%, #191439 55%, #130F2C 100%); }
+.onb-race.night::before { content: ''; position: absolute; inset: -30% -20% auto; height: 70%; pointer-events: none;
+  background: linear-gradient(100deg, transparent 12%, rgba(79, 230, 166, .26) 36%, rgba(156, 123, 255, .24) 62%, transparent 86%); filter: blur(22px); animation: nightAu 10s ease-in-out infinite alternate; }
+.onb-race.night > * { position: relative; animation: fade .6s .1s both; }
+@keyframes nightAu { from { transform: translateX(-8%) skewY(-4deg); opacity: .7; } to { transform: translateX(8%) skewY(3deg); opacity: 1; } }
+.room.climb { background: radial-gradient(140% 55% at 50% 0%, #2A2058 0%, #16122A 62%); }
+
+/* the three races */
+.heats { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.heat { display: grid; justify-items: center; align-content: start; gap: 1px; padding: 8px 4px 7px; border-radius: 16px; background: var(--surface-2); text-align: center; min-width: 0; transition: box-shadow .3s ease, background .3s ease; }
+.heat .hb { height: 32px; display: grid; place-items: center; }
+.heat .hn { font-size: 12.5px; font-weight: 900; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.heat .hr { font-size: 10.5px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); display: inline-flex; gap: 3px; align-items: center; }
+.heat.on { background: color-mix(in srgb, var(--glow-soft) 60%, var(--surface)); box-shadow: inset 0 0 0 2px var(--glow); }
+.heat.q.on { background: color-mix(in srgb, var(--aurora-b) 22%, var(--surface)); box-shadow: inset 0 0 0 2px var(--aurora-b), 0 0 22px -6px var(--aurora-b); }
+.heat.won .hr { color: var(--moss); }
+.heat.lost .hr { color: var(--falu); }
+.heat .mystery { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--line); color: var(--ink-2); font-family: var(--font-display); font-size: 17px; animation: bob 2.2s ease-in-out infinite; }
+.npc-intro .eyebrow { margin-bottom: -2px; }
+.npc-intro.qreveal .bee.npc { flex: none; animation: qdrop 1.1s cubic-bezier(.2, 1.35, .4, 1) both; }
+.npc-intro.qreveal .tx { animation: fade .6s .55s both; }
+@keyframes qdrop { 0% { transform: translateY(-70px) scale(.3) rotate(-25deg); opacity: 0; } 55% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+.race-count.whoosh { color: var(--aurora-b); font-size: clamp(40px, 12vw, 64px); animation: whoosh .6s cubic-bezier(.2, 1.5, .4, 1) both; }
+@keyframes whoosh { from { transform: translateX(35%) scale(.6) skewX(-18deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.lane.zoom .lane-bee { transition: left .14s linear; }
+.lane-trail { position: absolute; left: 0; bottom: 15px; height: 6px; border-radius: 99px; pointer-events: none; transition: width .14s linear;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--aurora-a) 80%, transparent) 55%, var(--aurora-b)); box-shadow: 0 0 14px var(--aurora-b); }
+
+/* the bees: Sixten's shades and the queen's crown */
+.bee.npc .shades rect { fill: #14112A; stroke: #F6C34E; stroke-width: .55; }
+.bee.npc .shades path { fill: none; stroke: #14112A; stroke-width: 1.1; stroke-linecap: round; }
+.bee.npc .shades .shine { stroke: rgba(255, 255, 255, .75); stroke-width: .6; }
+.bee.npc.tint-aurora .body { fill: #F7C64A; }
+.bee.npc.queen .wing { fill: #DDF8EE; stroke: #9C7BFF; }
+.bee.npc.queen .crown { fill: #B9A2FF; stroke: var(--ink); stroke-width: .8; stroke-linejoin: round; }
+.bee.npc.queen .tip { fill: #FFD66B; stroke: var(--ink); stroke-width: .5; }
+.bee.npc.queen .jewel { fill: #4FE6A6; stroke: var(--ink); stroke-width: .45; }
+.bee.npc.queen .jewel.b { fill: #FF8FB1; }
+svg.bee.npc.queen { filter: drop-shadow(0 0 5px rgba(156, 123, 255, .6)); }
+
+/* after the queen: the teaser and the road to Kiruna */
+.teaser { display: grid; gap: 14px; justify-items: center; text-align: center; }
+.teaser h2 { font-size: clamp(30px, 8vw, 42px); line-height: 1.05; }
+.teaser-p { font-size: 15px; color: var(--ink-2); max-width: 44ch; line-height: 1.5; }
+.teaser-km { display: inline-flex; gap: 6px; align-items: center; padding: 6px 14px; border-radius: 99px; font-weight: 900; color: var(--glow); background: var(--glow-soft); }
+.teaser .motto { background: color-mix(in srgb, var(--aurora-b) 16%, var(--surface)); }
+.teaser .onb-next { width: 100%; }
+.road2k { width: 100%; max-width: 520px; display: grid; gap: 2px; }
+.road2k svg { display: block; width: 100%; height: auto; overflow: visible; }
+.road2k p { font-size: 14px; color: var(--ink-2); }
+.road2k p b { color: var(--ink); }
+.r2-base { fill: none; stroke: var(--line); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 1 7; }
+.r2-road { fill: none; stroke: var(--glow); stroke-width: 4; stroke-linecap: round; animation: r2draw 1.8s .7s cubic-bezier(.4, 0, .2, 1) forwards; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--glow) 60%, transparent)); }
+@keyframes r2draw { to { stroke-dashoffset: 0; } }
+.r2-stop circle { fill: var(--surface-2); stroke: var(--ink-3); stroke-width: 2; }
+.r2-stop.here circle { fill: var(--glow); stroke: var(--glow-2); }
+.r2-stop.past circle { opacity: .4; }
+.r2-stop text, .r2-you text { font: 900 11px var(--font-body); fill: var(--ink-2); text-anchor: middle; }
+.r2-you text { fill: var(--glow); font-size: 12px; }
+.r2-peak .m { fill: #3B3470; stroke: var(--ink-3); stroke-width: 1; stroke-linejoin: round; }
+.r2-peak .sn { fill: #EEF0FF; }
+.r2-peak .cr { fill: #B9A2FF; stroke: var(--ink); stroke-width: .8; stroke-linejoin: round; animation: glint 2.4s ease-in-out infinite; }
+@keyframes glint { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+/* Kebnekaise: the scene */
+.kebne-box { position: relative; isolation: isolate; width: 100%; max-width: 560px; aspect-ratio: 3 / 2; border-radius: var(--r-lg); overflow: hidden; justify-self: center;
+  background: linear-gradient(180deg, #0B0920 0%, #1F1746 50%, #3B2A62 100%); box-shadow: var(--shadow); }
+.kebne-box.follow { aspect-ratio: 12 / 5; max-width: 640px; }
+.kebne-box.thumb { aspect-ratio: 16 / 9; max-width: none; margin-bottom: 14px; box-shadow: none; }
+.kebne { position: relative; z-index: 1; display: block; width: 100%; height: 100%; }
+.kebne text { font-family: var(--font-body); }
+.kb-stars circle { fill: #fff; opacity: .7; }
+/* the sky's moving parts are plain layers the browser can animate on its own */
+.kb-sky, .kb-fall, .kb-frost { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.kb-sky { z-index: 0; }
+.kb-au { position: absolute; inset: 0; width: 100%; height: 100%; transform-origin: 50% 25%; will-change: transform, opacity; }
+.kb-au.a1 { animation: aurA 11s ease-in-out infinite alternate; }
+.kb-au.a2 { animation: aurB 15s ease-in-out infinite alternate; }
+@keyframes aurA { from { transform: translateX(-3%) scaleY(.9); opacity: .7; } to { transform: translateX(4%) scaleY(1.15) skewX(-6deg); opacity: 1; } }
+@keyframes aurB { from { transform: translateX(3%) scaleY(1.1); opacity: .55; } to { transform: translateX(-4%) scaleY(.85) skewX(5deg); opacity: .95; } }
+.kb-tw { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; box-shadow: 0 0 5px 1px rgba(255, 255, 255, .65); animation: twinkle 3.4s ease-in-out infinite; will-change: opacity; }
+@keyframes twinkle { 0%, 100% { opacity: .95; } 50% { opacity: .15; } }
+.kb-fall { z-index: 2; }
+.kb-fall i { position: absolute; inset: -130px -130px 0; will-change: transform; }
+.kb-fall .s1 { background-size: 180px 120px; animation: snowfall 8s linear infinite;
+  background-image: radial-gradient(circle at 22px 18px, rgba(255, 255, 255, .9) 0 1px, transparent 1.6px), radial-gradient(circle at 96px 64px, rgba(255, 255, 255, .85) 0 1.1px, transparent 1.7px),
+    radial-gradient(circle at 150px 102px, rgba(255, 255, 255, .8) 0 .9px, transparent 1.5px), radial-gradient(circle at 58px 94px, rgba(255, 255, 255, .75) 0 .8px, transparent 1.4px), radial-gradient(circle at 132px 30px, rgba(255, 255, 255, .8) 0 1px, transparent 1.6px); }
+.kb-fall .s2 { background-size: 230px 120px; animation: snowfall 5s linear infinite; opacity: .9;
+  background-image: radial-gradient(circle at 40px 52px, #fff 0 1.5px, transparent 2.2px), radial-gradient(circle at 170px 12px, #fff 0 1.3px, transparent 2px), radial-gradient(circle at 112px 88px, #fff 0 1.7px, transparent 2.4px); }
+.kb-fall .s3 { background-size: 120px 120px; animation: stormfall .9s linear infinite;
+  background-image: radial-gradient(circle at 18px 26px, #fff 0 1.4px, transparent 2px), radial-gradient(circle at 78px 8px, #fff 0 1.2px, transparent 1.8px), radial-gradient(circle at 54px 74px, #fff 0 1.6px, transparent 2.2px),
+    radial-gradient(circle at 100px 98px, #fff 0 1.1px, transparent 1.7px), radial-gradient(circle at 8px 106px, #fff 0 1.3px, transparent 1.9px); }
+@keyframes snowfall { from { transform: translateY(0); } to { transform: translateY(120px); } }
+@keyframes stormfall { from { transform: translate(0, 0); } to { transform: translate(-120px, 120px); } }
+.kb-far path { fill: #2A2152; }
+.kb-world, .kb-far { transition: transform .9s cubic-bezier(.45, .05, .25, 1); }
+.kb-massif { fill: #3B3470; }
+.kb-shade { fill: #2C2659; }
+.kb-snowcap { fill: #ECEEFC; }
+.kb-ground { fill: #4A4384; opacity: .75; }
+.kb-hut .w { fill: #6B4A3A; }
+.kb-hut .r { fill: #C2463A; }
+.kb-hut .win { fill: #F6B44E; animation: hutglow 3s ease-in-out infinite; }
+@keyframes hutglow { 50% { opacity: .6; } }
+.kb-trail { fill: none; stroke: rgba(255, 255, 255, .5); stroke-width: 1.4; stroke-dasharray: 2.5 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.kb-done { fill: none; stroke: #F6B44E; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; transition: stroke-dashoffset .9s cubic-bezier(.45, .05, .25, 1); filter: drop-shadow(0 0 3px rgba(246, 180, 78, .75)); }
+.kb-wp { fill: rgba(255, 255, 255, .45); }
+.kb-wp.on { fill: #F6B44E; }
+.kb-tent .t { fill: #8E3A33; } .kb-tent .t2 { fill: #6E2B26; } .kb-tent .door { fill: #22163A; }
+.kb-tent .pole { stroke: #E7E2F5; stroke-width: 1; }
+.kb-tent .pennant { fill: #E7E2F5; transform-box: fill-box; transform-origin: left center; transform: scaleX(.05); transition: transform .5s ease; }
+.kb-tent .ring { fill: none; stroke: #F6B44E; stroke-width: 1.4; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.kb-tent.on .t { fill: #E0614F; } .kb-tent.on .t2 { fill: #B94A3C; } .kb-tent.on .door { fill: #F6B44E; }
+.kb-tent.on .pennant { fill: #F6B44E; transform: none; animation: wave 1.8s ease-in-out infinite; }
+.kebne-box.fx-camp .kb-tent.on .ring { animation: ring 1.3s ease-out both; }
+@keyframes wave { 50% { transform: skewY(9deg) scaleX(.85); } }
+@keyframes ring { 0% { opacity: .9; transform: scale(.3); } 100% { opacity: 0; transform: scale(2.2); } }
+.kb-flag { opacity: 0; transform-box: fill-box; transform-origin: center bottom; }
+.kb-flag.up { opacity: 1; }
+.kb-flag .pole { stroke: #E7E2F5; stroke-width: 1.2; }
+.kb-flag .bl { fill: #006AA7; }
+.kb-flag .cr { fill: none; stroke: #FECC02; stroke-width: 1.8; }
+.kb-flag .cloth { transform-box: fill-box; transform-origin: right center; animation: flutter 2.2s ease-in-out infinite; }
+.kb-flag.plant { animation: plant .7s .45s cubic-bezier(.3, 1.6, .5, 1) both; }
+@keyframes plant { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes flutter { 50% { transform: skewY(-7deg) scaleX(.93); } }
+.kb-lab { font-size: 9.5px; font-weight: 800; fill: rgba(255, 255, 255, .88); paint-order: stroke; stroke: rgba(14, 10, 36, .8); stroke-width: 2.6px; stroke-linejoin: round; }
+.kb-lab .alt { font-size: 8.5px; fill: #F6C978; }
+.m-follow .kb-lab { font-size: 7.6px; stroke-width: 2.2px; }
+.kb-mepos, .kb-qpos { transition: transform .85s cubic-bezier(.45, .05, .25, 1); }
+.kb-face { transition: transform .3s ease; }
+.kb-bee .beanie .band { stroke: #fff; stroke-width: 1.3; }
+.kb-bee .beanie .pom { fill: #fff; }
+.kb-bee .kb-crown { fill: #F6C34E; stroke: #2B2142; stroke-width: .9; stroke-linejoin: round; }
+.kb-act.a-up, .kb-act.a-camp, .kb-act.a-summit { animation: kbhop .85s ease-out both; }
+.kb-act.a-slip, .kb-act.a-time { animation: kbtumble .85s ease-in both; }
+.kb-act.a-hold { animation: kbwobble .6s ease-in-out both; }
+.kb-act.a-win { animation: kbhop .8s ease-out 3; }
+@keyframes kbhop { 0% { transform: none; } 35% { transform: translateY(-8px) rotate(-8deg); } 70% { transform: translateY(1px); } 100% { transform: none; } }
+@keyframes kbtumble { 0% { transform: none; } 30% { transform: translateY(-3px) rotate(-40deg); } 65% { transform: rotate(-220deg); } 100% { transform: rotate(-360deg); } }
+@keyframes kbwobble { 20% { transform: rotate(-14deg); } 50% { transform: rotate(10deg); } 80% { transform: rotate(-5deg); } }
+.kebne-box.fx-slip.fxa, .kebne-box.fx-time.fxa { animation: kbshakeA .5s ease-out; }
+.kebne-box.fx-slip.fxb, .kebne-box.fx-time.fxb { animation: kbshakeB .5s ease-out; }
+@keyframes kbshakeA { 15% { transform: translate(-5px, 2px); } 35% { transform: translate(5px, -2px); } 55% { transform: translate(-3px, 1px); } 75% { transform: translate(2px, 0); } }
+@keyframes kbshakeB { 15% { transform: translate(-5px, 2px); } 35% { transform: translate(5px, -2px); } 55% { transform: translate(-3px, 1px); } 75% { transform: translate(2px, 0); } }
+.kb-rocks .rk { fill: #8E86B8; stroke: #241F4A; stroke-width: .5; transform-box: fill-box; transform-origin: center; }
+.kb-rocks .k0 { animation: rock0 1s ease-in forwards; } .kb-rocks .k1 { animation: rock1 1.1s ease-in forwards; }
+.kb-rocks .k2 { animation: rock2 .95s ease-in forwards; } .kb-rocks .k3 { animation: rock3 1.05s ease-in forwards; }
+@keyframes rock0 { to { transform: translate(-16px, 40px) rotate(-200deg); opacity: 0; } }
+@keyframes rock1 { to { transform: translate(10px, 46px) rotate(160deg); opacity: 0; } }
+@keyframes rock2 { to { transform: translate(-5px, 52px) rotate(260deg); opacity: 0; } }
+@keyframes rock3 { to { transform: translate(18px, 36px) rotate(-120deg); opacity: 0; } }
+.kb-burst { animation: kbburst .9s ease-out forwards; transform-box: fill-box; transform-origin: center; }
+.kb-burst path { stroke: #F6B44E; stroke-width: 1.8; stroke-linecap: round; }
+.kb-burst circle { fill: none; stroke: #FFE3A6; stroke-width: 1.2; }
+@keyframes kbburst { 0% { transform: scale(.3); opacity: 1; } 100% { transform: scale(1.6); opacity: 0; } }
+.kb-float { font-size: 9px; font-weight: 900; paint-order: stroke; stroke: rgba(14, 10, 36, .85); stroke-width: 2.4px; stroke-linejoin: round; animation: kbfloat 1.3s ease-out forwards; }
+.kb-float.up { fill: #9BE7B0; }
+.kb-float.down { fill: #FF9DB0; animation-name: kbsink; }
+@keyframes kbfloat { 0% { transform: translateY(4px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-14px); opacity: 0; } }
+@keyframes kbsink { 0% { transform: translateY(-4px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(12px); opacity: 0; } }
+.kb-queen.top { animation: qhover 3.2s ease-in-out infinite; }
+.kb-queen.land { animation: qland 2s cubic-bezier(.25, .8, .3, 1) both, qhover 3.2s 2s ease-in-out infinite; }
+.kb-queen.beaten { animation: qbow 1.1s .5s ease-in-out both; }
+@keyframes qhover { 50% { transform: translateY(-3px); } }
+@keyframes qland { 0% { transform: translate(170px, 165px) scale(.45); opacity: 0; } 12% { opacity: 1; } 60% { transform: translate(55px, -12px) scale(.9); } 100% { transform: none; opacity: 1; } }
+@keyframes qbow { to { transform: rotate(-16deg) translateY(1px); } }
+.kb-qtrail { fill: none; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 300; stroke-dashoffset: 300; animation: qtrail 2s cubic-bezier(.25, .8, .3, 1) forwards, kbfade .9s 2.1s forwards; }
+@keyframes qtrail { to { stroke-dashoffset: 0; } }
+@keyframes kbfade { to { opacity: 0; } }
+.kb-frost { z-index: 3; background: radial-gradient(ellipse 80% 75% at 50% 45%, transparent 40%, rgba(230, 242, 255, .85) 100%); animation: frost 1.3s ease-in-out infinite alternate; will-change: opacity; }
+@keyframes frost { from { opacity: .5; } to { opacity: 1; } }
+.kb-gust path { stroke: rgba(255, 255, 255, .8); stroke-width: 1.6; stroke-linecap: round; opacity: 0; animation: gust .9s ease-in forwards; }
+@keyframes gust { 0% { transform: none; opacity: 0; } 15% { opacity: 1; } 100% { transform: translateX(-470px); opacity: 0; } }
+
+/* Kebnekaise: the climb */
+.room.climb .results { padding-top: 8px; }
+.climb-live { display: grid; gap: 12px; }
+.climb-hud { display: flex; align-items: baseline; gap: 6px 10px; flex-wrap: wrap; }
+.climb-hud b { font-family: var(--font-display); font-weight: 400; font-size: 26px; line-height: 1; color: var(--glow); }
+.climb-hud span { font-size: 13.5px; font-weight: 800; color: var(--ink-2); }
+.climb-hud .hud-camp { margin-left: auto; display: inline-flex; gap: 5px; align-items: center; }
+.climb-clock { position: relative; height: 30px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.climb-clock i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: linear-gradient(90deg, var(--moss), var(--glow)); transition: width .1s linear; }
+.climb-clock span { position: relative; display: block; text-align: center; line-height: 30px; font-size: 14px; font-weight: 900; color: var(--ink); }
+.climb-clock.cold { background: color-mix(in srgb, #8EC9FF 22%, var(--surface-2)); box-shadow: inset 0 0 0 2px rgba(142, 201, 255, .55); animation: shiver .25s linear infinite; }
+.climb-clock.cold i { background: linear-gradient(90deg, #8EC9FF, #E6F2FF); }
+.climb-clock.cold span { color: #fff; text-shadow: 0 1px 2px rgba(14, 31, 58, .9); }
+@keyframes shiver { 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
+.climb-banner { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; min-height: 30px; padding: 10px 14px; border-radius: var(--r-md); font-size: 15px; font-weight: 800; animation: fade .3s both; }
+.climb-banner > span { flex: 1 1 12em; }
+.climb-banner .btn { flex: none; margin-left: auto; }
+.climb-banner svg { flex: none; }
+.climb-banner.ok { background: var(--moss-soft); color: var(--moss); }
+.climb-banner.bad { background: var(--lingon-soft); color: var(--lingon); }
+.climb-banner.hold { background: var(--glow-soft); color: var(--ink); }
+.climbq .rope-note { background: color-mix(in srgb, var(--glow) 16%, var(--surface)); }
+.climbq.rope { display: grid; gap: 12px; }
+.climb-intro .eyebrow, .climb-queen .eyebrow { display: inline-flex; gap: 6px; align-items: center; }
+.queen-wait { display: flex; gap: 12px; align-items: center; text-align: left; padding: 12px 14px; border-radius: var(--r-lg); background: color-mix(in srgb, var(--aurora-b) 18%, var(--surface)); max-width: 46ch; }
+.queen-wait span { font-size: 14.5px; color: var(--ink-2); line-height: 1.4; }
+.queen-wait b { color: var(--ink); }
+.climb-win .motto, .climb-top .motto { background: color-mix(in srgb, var(--aurora-b) 16%, var(--surface)); }
+.climbcard { box-shadow: var(--shadow), inset 0 0 0 2px color-mix(in srgb, var(--aurora-b) 45%, transparent); }
+.climbcard .theme { font-size: 16px; font-weight: 700; color: var(--ink-2); }
+.climbcard .theme + .row { margin-top: 16px; }
+.climb-best { font-size: 14px; margin-block: 6px 14px; }
+.lessonrow.climbrow .li { background: color-mix(in srgb, var(--aurora-b) 22%, var(--surface)); }
+
+/* Kebnekaise on the map */
+.m-kebne { cursor: pointer; }
+.m-kebne .hit { fill: transparent; }
+.m-kebne .kb-path { fill: none; stroke: var(--ink-3); opacity: .55; }
+.m-kebne.open .kb-path { stroke: var(--glow-2); opacity: .9; }
+.m-kebne .mt { fill: #4A4384; stroke: var(--surface); stroke-width: 1.4; stroke-linejoin: round; }
+.m-kebne .sn { fill: #F2F0FF; }
+.m-kebne .cr { fill: #B9A2FF; stroke: #2B2142; stroke-width: .8; stroke-linejoin: round; animation: glint 2.4s ease-in-out infinite; }
+.m-kebne.won .cr { fill: var(--gold); }
+.m-kebne .fl .pole { stroke: #2B2142; stroke-width: 1; }
+.m-kebne .fl .cloth { fill: #006AA7; }
+.m-kebne .fl .cross { fill: none; stroke: #FECC02; stroke-width: 1.1; }
+.m-kebne:focus-visible { outline: none; }
+.m-kebne:focus-visible .mt { stroke: var(--falu); stroke-width: 2.4; }
