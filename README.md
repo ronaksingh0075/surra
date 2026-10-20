@@ -54,6 +54,8 @@ npm run release # builds, then lists only the publishing steps this build needs 
 
 `build/surra.html` is the claude.ai artifact version. It has live Claude role-plays, and progress syncs to your Claude account there.
 
+Every dependency is a build-time one: the app and the notifier ship only what the build bundles into `docs/` and `notifier/dist/`. `package.json` overrides `@grpc/grpc-js` because Firebase's Node.js Firestore client still asks for version 1.9, which has security advisories. Surra bundles Firestore Lite (plain HTTPS), so gRPC never reaches the app, and `npm audit` should report no vulnerabilities.
+
 ### The map
 
 ```bash
