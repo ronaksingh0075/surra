@@ -238,6 +238,9 @@ function App() {
   const [news, setNews] = useState(false);
   useEffect(() => { applyTheme(s.settings); }, [s.settings.palette, s.settings.mode, themeOpen(s, themeById(s.settings.palette))]);
   useEffect(() => { if (s.onboarded && view && view.name === 'onboard') setView(null); }, [s.onboarded]);
+  // started without a connection: once there's a profile (from here or another device) the sign-up is done
+  const acctNow = ACCT.use();
+  useEffect(() => { if (s.signupDue && ['ready', 'unverified'].includes(acctNow.status)) update(x => { delete x.signupDue; }); }, [acctNow.status, s.signupDue]);
   const setTab = t => { setSheet(null); setTabRaw(t); armBack(); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } };
   backNav.tab = () => tab; backNav.setTab = setTab;
   useEffect(() => {
@@ -297,6 +300,7 @@ function App() {
   const racePlayer = target => { setSheet(null); setRoom({ name: 'race', mode: 'host', target, k: Date.now() }); };
   const joinRace = r => { setSheet(null); setRoom({ name: 'race', mode: 'guest', race: r, k: Date.now() }); };
   if (view && view.name === 'onboard') return html`<${Onboarding} done=${() => { setView(null); setTab('home'); }} go=${go} /><${Toasts} /><${UpdateBanner} />`;
+  if (s.onboarded && s.signupDue && acctNow.status === 'guest' && !(view && view.name === 'account')) return html`<${JoinLater} /><${Toasts} /><${UpdateBanner} />`;
   if (view && view.name === 'account') return html`<${AccountPage} go=${go} mode=${view.mode} /><${Toasts} /><${UpdateBanner} />`;
   const body = tab === 'map' ? html`<${MapTab} s=${s} mode=${mapMode} setMode=${setMapMode} go=${go} openStop=${openStop} openRegion=${openRegion} openFact=${openFact} openPlayers=${openPlayers} openChallenges=${openChallenges} />`
     : tab === 'practice' ? html`<${PracticeTab} s=${s} startAction=${startAction} openStop=${openStop} />`

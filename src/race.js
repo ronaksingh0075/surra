@@ -4,6 +4,7 @@
    and an open app checks every half minute). Both start at the same server moment, five seconds after the join,
    each sends their progress about once a second, and the first to finish wins: the race is decided as soon as
    the other player can no longer beat the winner's time. Ten kilometres are at stake, nothing in a safehouse.
+   If two players invite each other at the same time, the invites cross and they race at once (crossKeep).
    Firestore: races/{id} (only the two players can read it or change their own side). */
 const LRACE = { inviteMs: 120e3, leadMs: 5000, maxMs: 240e3, settleMs: 3000, tickMs: 1000, pollMs: 30e3 };
 const RACES = cell({ invites: [], at: 0 });
@@ -55,6 +56,23 @@ async function acceptRace(r) {
   const F = acct.F, t0 = Date.now();
   await F.updateDoc(F.doc(acct.db, 'races', r.id), { status: 'on', joined: F.serverTimestamp() });
   return { sent: [t0, Date.now()] };
+}
+/* invites that cross: you invite someone who has just invited you (or you both tap Race at once). Both phones settle
+   on the same race, the one created first (at the same moment, the lower id); its invited player joins it and takes
+   their own invite back, so the race starts at once. The security rules already allow both moves. */
+function crossKeep(a, b) {
+  if (!a || !b) return a || b || null;
+  if (a.created !== b.created) return (a.created || Infinity) < (b.created || Infinity) ? a : b;
+  return a.id < b.id ? a : b;
+}
+// the open invite this player sent you, if any (the oldest)
+async function inviteFrom(uid) {
+  const F = acct.F, me = meUid();
+  if (!me || !uid) return null;
+  const snap = await F.getDocs(F.query(F.collection(acct.db, 'races'), F.where('b', '==', me), F.limit(20)));
+  const now = Date.now(), list = [];
+  snap.forEach(d => { const r = normRace(d.id, d.data()); if (r.a === uid && inviteOpen(r, now) && !rc.closed.has(r.id)) list.push(r); });
+  return list.reduce((k, r) => crossKeep(k, r), null);
 }
 async function closeRace(r) { // decline an invite, or take your own back
   rc.closed.add(r.id);

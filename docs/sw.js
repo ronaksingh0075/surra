@@ -1,5 +1,5 @@
 // Surra service worker: works offline, updates when a new version is published.
-const VERSION = '68c9fc96d5';
+const VERSION = '168f13ec49';
 const CACHE = 'surra-' + VERSION;
 const ASSETS = ["./","app.css","app.js","config.js","fonts/caprasimo-latin-400-normal.woff2","fonts/caprasimo-latin-ext-400-normal.woff2","fonts/nunito-latin-ext-wght-normal.woff2","fonts/nunito-latin-wght-italic.woff2","fonts/nunito-latin-wght-normal.woff2","icons/apple-touch-icon.png","icons/badge-96.png","icons/badge.svg","icons/favicon-32.png","icons/icon-192.png","icons/icon-512.png","icons/icon.svg","icons/maskable-512.png","index.html","manifest.webmanifest","vendor/firebase.js","vendor/preact-htm.js"];
 self.addEventListener('install', e => {

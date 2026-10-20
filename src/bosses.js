@@ -1,8 +1,9 @@
 /* ================= Surra NPC bees: the three races of onboarding, and the boss bees of the four safehouses =================
    Onboarding is three short races at the level you picked. Bettan keeps it close (she hurries when you lead and
    dawdles when she leads), so most first races are won by a whisker. Sixten, her big brother, flies about five words
-   a minute faster and is less forgiving. The third bee is Fjälldrottningen, the queen bee of Kebnekaise: she lets
-   you get ahead, then zooms past, and nobody beats her on day one. She waits on the summit for the rematch (climb.js).
+   a minute faster and is less forgiving. The third bee is Fjälldrottningen, the queen bee of Kebnekaise: she matches
+   your speed wing to wing, then zooms past in the last stretch, and nobody beats her on day one. She waits on the
+   summit for the rematch (climb.js).
    Each safehouse has a boss bee who guards the road out of the city. A boss battle is a race to the blomma: every
    right reply flies you a tenth of the way, and the boss's motto (real spoken Swedish) is the final stretch. The boss
    flies steadily, a little slower after every loss. Beat the boss to travel past the safehouse and win 50 km.
@@ -110,12 +111,23 @@ function npcStep(at, dtMs, cps, len, rubber, mine) {
   const m = b ? Math.max(b.lo, Math.min(b.hi, 1 + b.k * ((mine || 0) - at))) : 1;
   return Math.min(1, at + ((dtMs / 1000) * cps * m) / Math.max(1, len));
 }
-// the queen on day one: she idles until you're a quarter of the way (or 5 s pass), then zooms to the blomma in about
-// a second, always staying ahead of you. No human can type the rest of the sentence that fast.
-const QUEEN_ZOOM = { wait: 0.25, waitMs: 5000, flyMs: 1100, lead: 0.06 };
-function queenStep(at, dtMs, elMs, mine, zooming) {
-  if (!zooming && (mine || 0) < QUEEN_ZOOM.wait && elMs < QUEEN_ZOOM.waitMs) return { at: Math.min(at, 0.04) + (at < 0.04 ? dtMs / 40000 : 0), zooming: false };
-  return { at: Math.min(1, Math.max(at + dtMs / QUEEN_ZOOM.flyMs, (mine || 0) + QUEEN_ZOOM.lead)), zooming: true };
+/* the queen on day one: she matches your own speed, so the race is neck and neck and the lead changes hands, then
+   she kicks for the blomma in the last stretch. Her kick is tied to how far you've typed, not to the clock: she
+   reaches the flower before you've typed the final letters, so no typing speed beats her. If you stop typing she
+   carries on at an easy pace and wins anyway. */
+const QUEEN_RACE = { kick: 0.84, sit: 0.01, swing: 0.035, swingMs: 1500, startCps: 2.2, floorCps: 0.7, idleMs: 3000, cruiseCps: 2.6,
+  gain: 12, slow: 0.5, fast: 2.6, sprintMs: 3600, sure: 0.4, lead: 0.03, warmMs: 900 };
+function queenStep(at, dtMs, elMs, mine, zooming, len = 50, idleMs = 0) {
+  const Q = QUEEN_RACE, me = mine || 0, n = Math.max(1, len);
+  if (zooming || me >= Q.kick || at >= Q.kick + 0.03) // the kick: away she goes, and she's home before you finish
+    return { at: Math.min(1, Math.max(at + dtMs / Q.sprintMs, me + (1 - me) * Q.sure + Q.lead)), zooming: true };
+  // your average speed so far, from your first few letters (a gentle opening pace until then); stop typing and she cruises on
+  const avg = me > 0.02 ? me / Math.max(elMs, Q.warmMs) : Q.startCps / n / 1000;
+  const yours = idleMs > Q.idleMs ? Q.cruiseCps / n / 1000 : Math.max(avg, Q.floorCps / n / 1000);
+  // she aims a whisker behind you, swinging either side of you so the lead changes hands
+  const aim = me - Q.sit + Q.swing * Math.sin(elMs / Q.swingMs);
+  const m = idleMs > Q.idleMs ? 1 : Math.max(Q.slow, Math.min(Q.fast, 1 + Q.gain * (aim - at)));
+  return { at: Math.max(0, Math.min(Q.kick + 0.03, at + dtMs * yours * m)), zooming: false };
 }
 const introText = level => INTRO_TEXTS[level] || INTRO_TEXTS.A2;
 // the three races of onboarding, at your level

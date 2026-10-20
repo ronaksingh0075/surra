@@ -1189,3 +1189,97 @@ svg.bee.npc.queen { filter: drop-shadow(0 0 5px rgba(156, 123, 255, .6)); }
 .m-kebne .fl .cross { fill: none; stroke: #FECC02; stroke-width: 1.1; }
 .m-kebne:focus-visible { outline: none; }
 .m-kebne:focus-visible .mt { stroke: var(--falu); stroke-width: 2.4; }
+
+/* ---------- 1.9: joining the race after the queen, and the guide to the journey ahead */
+.onb-join { display: grid; gap: 16px; }
+.join-hero { display: grid; justify-items: center; text-align: center; gap: 8px; }
+.join-hero .bee.npc { animation: qhover 2.6s ease-in-out infinite; }
+.join-hero h2 { font-size: clamp(30px, 8vw, 40px); line-height: 1.05; }
+.join-p { font-size: 15px; color: var(--ink-2); max-width: 44ch; line-height: 1.5; }
+.join-proof { display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 99px; font-size: 14px; font-weight: 800; background: var(--surface-2); color: var(--ink-2); }
+.join-proof b { color: var(--ink); }
+.join-perks { margin-top: 0; justify-self: center; }
+.join-perks svg { color: var(--glow); }
+.onb-join .authform { margin-top: 0; }
+.onb-join .actions { display: grid; gap: 10px; justify-items: center; }
+.join-alt { display: flex; gap: 6px 14px; flex-wrap: wrap; justify-content: center; align-items: center; font-size: 14.5px; color: var(--ink-2); }
+.onb-join .linkbtn { color: var(--glow); }
+
+.guide { display: grid; gap: 14px; overflow: hidden; }
+.g-top { display: flex; justify-content: space-between; align-items: center; min-height: 28px; }
+.g-skip { font-size: 14px; }
+.g-welcome { animation: fade .5s both; }
+.g-page { display: grid; gap: 8px; justify-items: center; text-align: center; animation: gIn .45s cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes gIn { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+.g-page h2 { font-size: clamp(28px, 7.5vw, 38px); line-height: 1.05; }
+.g-eyebrow { color: var(--falu); margin-top: 6px; }
+.g-text { font-size: 15.5px; color: var(--ink-2); max-width: 44ch; line-height: 1.55; }
+.g-art { width: 100%; min-height: 250px; display: grid; place-items: center; }
+.g-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.g-dots { display: flex; justify-content: center; gap: 8px; }
+.g-dot { width: 10px; height: 10px; padding: 0; border: 0; border-radius: 99px; background: var(--line); transition: width .25s ease, background .25s ease; }
+.g-dot.on { width: 28px; background: var(--glow); }
+.g-dot.done { background: var(--moss); }
+.g-nav { display: flex; justify-content: space-between; gap: 10px; }
+.g-nav .btn { flex: 0 1 auto; }
+.g-nav .btn.primary { flex: 1; max-width: 300px; margin-left: auto; white-space: nowrap; }
+@media (max-width: 440px) { .g-back { padding-inline: 14px; } .g-back .lbl { display: none; } }
+.g-field { display: grid; gap: 8px; justify-items: center; width: 100%; margin-top: 4px; padding-top: 12px; border-top: 2px dashed var(--line); }
+.g-field .muted { font-size: 13.5px; max-width: 44ch; }
+
+/* page 1: the road, on the map */
+.g-map { width: 100%; max-width: 280px; height: 300px; padding: 0; position: relative; overflow: hidden; background: var(--sea); animation: gPop .6s .1s cubic-bezier(.2, 1.3, .4, 1) both; }
+@keyframes gPop { from { transform: scale(.88); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* page 2: a real reply, and how it sounds */
+.g-chat { width: 100%; max-width: 420px; display: grid; gap: 10px; text-align: left; }
+.g-say { display: flex; gap: 10px; align-items: flex-start; animation: rise .5s .15s both; }
+.g-say .avatar { width: 40px; height: 40px; border-radius: 14px; background: var(--surface-2); color: var(--falu); font-family: var(--font-display); font-size: 18px; display: grid; place-items: center; flex: none; }
+.g-say .bubble { display: grid; gap: 2px; }
+.g-say .bubble b { font-size: 18px; line-height: 1.3; }
+.g-opts { display: grid; gap: 7px; padding-left: 50px; }
+.g-opt { display: flex; gap: 8px; align-items: center; padding: 9px 13px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); font-size: 14.5px; font-weight: 700; animation: gOpt .4s both; }
+.g-opt.ok { animation: gOpt .4s both, gRight .45s 2s both; }
+.g-opt > svg { display: none; color: var(--moss); flex: none; }
+.g-opt.ok > svg { display: block; animation: starpop .35s 2s both; }
+@keyframes gOpt { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes gRight { to { border-color: var(--moss); background: var(--moss-soft); } }
+.g-sound { margin-left: 50px; display: grid; gap: 3px; padding: 10px 13px; border-radius: 14px; background: var(--glow-soft); animation: rise .5s 2.6s both; }
+.g-sound .sp-lab { display: inline-flex; gap: 6px; align-items: center; font-size: 11.5px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.g-sound b { font-size: 16px; }
+
+/* page 3: signposts and stamps */
+.g-culture { width: 100%; max-width: 420px; display: grid; gap: 16px; justify-items: center; }
+.g-post { position: relative; display: grid; gap: 8px; padding: 6px 0 20px; justify-items: center; }
+.g-pole { position: absolute; left: 50%; top: 0; bottom: 0; width: 8px; margin-left: -4px; border-radius: 4px; background: color-mix(in srgb, var(--ink-2) 55%, var(--surface-2)); z-index: 0; }
+.g-board { --fx: var(--fx-history); position: relative; z-index: 1; display: flex; gap: 8px; align-items: center; width: min(320px, 86vw); padding: 9px 30px 9px 13px; color: var(--bg); background: var(--fx); text-align: left;
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 50%, calc(100% - 20px) 100%, 0 100%); transform-origin: 50% 0; animation: gSwing .7s cubic-bezier(.2, 1.4, .4, 1) both; box-shadow: var(--shadow); }
+.g-board.flip { padding: 9px 13px 9px 30px; clip-path: polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 0 50%); }
+.g-board.b-history { --fx: var(--fx-history); } .g-board.b-culture { --fx: var(--fx-culture); } .g-board.b-nature { --fx: var(--fx-nature); } .g-board.b-language { --fx: var(--fx-language); } .g-board.b-science { --fx: var(--fx-science); }
+.g-board span { display: grid; font-size: 14px; font-weight: 800; line-height: 1.25; }
+.g-board span b { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+.g-board svg { flex: none; }
+@keyframes gSwing { 0% { transform: rotate(-14deg) translateY(-14px); opacity: 0; } 60% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+.g-stamps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.g-stamp { display: grid; justify-items: center; gap: 2px; padding: 9px 2px 7px; border-radius: 50%; aspect-ratio: 1; align-content: center; border: 2.5px dashed var(--line); color: var(--ink-3); }
+.g-stamp small { font-size: 10.5px; font-weight: 900; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-stamp.got { border: 3px solid var(--falu); color: var(--falu); animation: slam .55s 1.3s cubic-bezier(.2, 1.3, .4, 1) both; }
+
+/* page 4: a race against other learners */
+.g-race { width: 100%; max-width: 440px; display: grid; gap: 12px; }
+.g-race .lane-bee { animation: gRun 5.4s ease-in-out infinite; }
+.g-race .lane:nth-child(3) .lane-bee { animation-name: gRunB; animation-duration: 5.4s; }
+.g-race .lane:nth-child(4) .lane-bee { animation-name: gRunC; animation-duration: 5.4s; }
+@keyframes gRun { 0%, 8% { left: 0%; } 40% { left: 38%; } 62% { left: 72%; } 78%, 100% { left: 100%; } }
+@keyframes gRunB { 0%, 8% { left: 0%; } 40% { left: 46%; } 62% { left: 70%; } 82%, 100% { left: 100%; } }
+@keyframes gRunC { 0%, 8% { left: 0%; } 40% { left: 30%; } 62% { left: 66%; } 88%, 100% { left: 100%; } }
+
+/* page 5: the bosses and the queen */
+.g-queen { width: 100%; display: grid; gap: 12px; }
+.g-queen .kebne-box { max-width: 460px; }
+.g-bosses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.g-boss { display: grid; justify-items: center; gap: 2px; animation: rise .5s both; }
+.g-boss small { font-size: 11px; font-weight: 800; color: var(--ink-2); text-align: center; line-height: 1.2; }
+
+/* both players invited each other: the race is on */
+.notice.crossed { margin-top: 10px; animation: rise .4s both; }

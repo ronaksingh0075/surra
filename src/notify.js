@@ -286,6 +286,9 @@ function promptFor(s, a, P) {
 /* ---------- what's new: shown once to people who were already on the road before this release */
 // newest first; the sheet shows every release since the one a player last saw
 const NEWS_RELEASES = [
+  { id: '1.9', items: [
+    { icon: 'flower', t: 'Invites that cross', d: 'Invite a player to a typing race while they’re inviting you, and you both go straight into one race together.' },
+  ] },
   { id: '1.8', items: [
     { icon: 'mountain', t: 'Kebnekaise', d: 'Reach Kiruna and climb Sweden’s highest mountain: right answers take you up, mistakes and running out of time make you slip, and two camps catch your fall.' },
     { icon: 'crown', t: 'The queen of the mountain', d: 'Fjälldrottningen waits on the north top, 2,097 m up. Beat her in a typing race for 100 km and the last badge.' },

@@ -2,7 +2,8 @@
    Guests learn on this device. Signing up sends a verification email; once verified, progress is backed up to
    Firestore at users/{uid} and follows the person across devices. Without a Firebase config this file is inert. */
 const NAV = { go: null };
-const ACCT = cell({ status: 'off', user: null, sync: null, syncedAt: 0 }); // off | loading | unavailable | guest | unverified | ready
+// off | loading | unavailable | guest | unverified | ready. With profiles set up it starts as loading, before the first render
+const ACCT = cell({ status: accountsConfig() ? 'loading' : 'off', user: null, sync: null, syncedAt: 0 });
 const setAcct = p => ACCT.set({ ...ACCT.get(), ...p });
 const acct = { F: null, auth: null, db: null, retry: 0 };
 const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, '');

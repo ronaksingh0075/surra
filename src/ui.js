@@ -1036,13 +1036,17 @@ function Settings({ go, embedded }) {
 }
 
 /* ---------- onboarding */
+/* onboarding: your Swedish, three races against the bees, joining the race (a profile), then the journey ahead.
+   Someone who raced the queen and then left (or reloaded) comes back to the sign-up, not to the races. */
+const raceDone = s => !!(s.intro && s.intro.bees && s.intro.bees.queen);
+const needsJoin = () => !['off', 'ready', 'unverified'].includes(ACCT.get().status);
 function Onboarding({ done, go }) {
-  const s = useApp();
-  const [step, setStep] = useState(0); // 0: your Swedish, 1: three races against the bees, 2: your journey
+  const s = useApp(), a = ACCT.use();
+  const [step, setStep] = useState(() => (raceDone(S()) ? (needsJoin() ? 2 : 3) : 0)); // 0 level, 1 races, 2 join, 3 guide
   const [start, setStart] = useState(s.start || 'A2');
   const [work, setWork] = useState(s.settings.work || 'mix');
   const [raced, setRaced] = useState(false);
-  const preview = useMemo(() => withDefaults({ ...freshState(), start }), [start]);
+  const [offline, setOffline] = useState(false);
   const startOpts = [
     { v: 'A1', b: 'New to Swedish', t: 'Start in Malmö with greetings and fika.' },
     { v: 'A2', b: 'I know the basics', t: 'Start in Göteborg with small talk and bookings. Skåne stays open for review.' },
@@ -1051,8 +1055,14 @@ function Onboarding({ done, go }) {
   ];
   const top = () => { try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } };
   const goStep = n => { setStep(n); top(); };
-  const finish = () => { update(x => { x.onboarded = true; x.start = start; x.settings.work = work; x.settings.news = NEWS.id; }); done(); top(); };
-  const dots = html`<div class="onb-steps" role="img" aria-label=${`Step ${step + 1} of 3`}>${[0, 1, 2].map(i => html`<span class=${cx('dot', i === step && 'on', i < step && 'done')}></span>`)}</div>`;
+  const afterRaces = () => goStep(needsJoin() ? 2 : 3);
+  const finish = () => {
+    update(x => { x.onboarded = true; x.start = start; x.settings.work = work; x.settings.news = NEWS.id; if (offline && needsJoin()) x.signupDue = true; else delete x.signupDue; });
+    done(); top();
+  };
+  // the join step only counts when profiles are part of this version
+  const steps = a.status === 'off' ? [0, 1, 3] : [0, 1, 2, 3], at = Math.max(0, steps.indexOf(step));
+  const dots = html`<div class="onb-steps" role="img" aria-label=${`Step ${at + 1} of ${steps.length}`}>${steps.map((k, i) => html`<span class=${cx('dot', i === at && 'on', i < at && 'done')}></span>`)}</div>`;
   if (step === 0) return html`<div class="wrap"><div class="onb">
     ${dots}
     <div class="onb-hero">
@@ -1064,25 +1074,20 @@ function Onboarding({ done, go }) {
     <div class="card"><span class="eyebrow">How much Swedish do you know?</span>
       <div class="choice" style="margin-top:10px">${startOpts.map(o => html`<button aria-pressed=${String(start === o.v)} onClick=${() => setStart(o.v)}><span class="lvl" style="width:44px;height:44px">${o.v}</span><span class="tx"><b>${o.b}</b><span>${o.t}</span></span></button>`)}</div>
     </div>
-    <button class="btn primary wide onb-next" onClick=${() => goStep(1)}>Next<${Icon} n="arrowR" s=${20} /></button>
+    <button class="btn primary wide onb-next" onClick=${() => { update(x => { x.start = start; }); goStep(1); }}>Next<${Icon} n="arrowR" s=${20} /></button>
   </div></div>`;
   if (step === 1) return html`<div class="wrap"><div class="onb">
     ${dots}
-    <${IntroGauntlet} key=${start} level=${start} onRaced=${() => setRaced(true)} onDone=${() => goStep(2)} />
+    <${IntroGauntlet} key=${start} level=${start} cta=${needsJoin() ? 'Join the race to beat her' : 'Start the road to Kiruna'} onRaced=${() => setRaced(true)} onDone=${afterRaces} />
     ${raced ? null : html`<button class="linkbtn onb-back" onClick=${() => goStep(0)}>Back</button>`}
+  </div></div>`;
+  if (step === 2) return html`<div class="wrap"><div class="onb">
+    ${dots}
+    <${JoinRace} raced=${raceDone(s)} onDone=${() => goStep(3)} onOffline=${() => { setOffline(true); goStep(3); }} />
   </div></div>`;
   return html`<div class="wrap"><div class="onb">
     ${dots}
-    <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:18px">
-      <div class="card"><span class="eyebrow">How the race works</span>
-        <p class="muted" style="font-size:14px;margin-top:8px">Every lesson covers real road between cities, from 30 km into Malmö to 360 km into Umeå, and the players race is ranked by kilometres. Boss bees guard the four safehouses: beat them to travel on. At the end of the road, the queen waits on top of Kebnekaise.</p>
-        <span class="eyebrow" style="display:block;margin-top:18px">Your field</span>
-        <div style="margin-top:10px"><${Seg} label="Your field" value=${work} options=${[{ v: 'mix', l: 'Mix' }, { v: 'general', l: 'Office' }, { v: 'life', l: 'Life sciences' }]} onChange=${setWork} /></div>
-        <p class="muted" style="font-size:13.5px;margin-top:8px">${WORK_HELP[work]}</p>
-      </div>
-    </div>
-    <div class="mapcard onb-map" aria-hidden="true"><${ZoomMap} s=${preview} interactive=${false} /></div>
-    <button class="btn primary wide onb-next" onClick=${finish}>Start my journey<${Icon} n="arrowR" s=${20} /></button>
+    <${OnbGuide} start=${start} work=${work} setWork=${setWork} onDone=${finish} />
   </div></div>`;
 }
 

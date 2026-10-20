@@ -128,7 +128,9 @@ function RaceRoom({ mode, target, race, onExit, onAgain }) { // mode: 'bees' | '
   const [result, setResult] = useState(null);
   const [askExit, setAskExit] = useState(false);
   const [err, setErr] = useState('');
+  const [crossed, setCrossed] = useState(false); // you both sent an invite at the same time
   const off = useRef(0), sent = useRef(-1), finishSent = useRef(false), alive = useRef(true), meChars = useRef(0);
+  const join = useRef(race || null), ownInvite = useRef(null), checks = useRef(0); // the race to join; your own invite while invites cross
   meChars.current = me.chars;
   const side = R ? raceSide(R, uid) : mode === 'host' ? 'a' : 'b';
   const rival = R ? raceRival(R, side) : target || {};
@@ -154,6 +156,10 @@ function RaceRoom({ mode, target, race, onExit, onAgain }) { // mode: 'bees' | '
     if (phase === 'invite') {
       (async () => {
         try {
+          // they've invited you already: no need for a second invite, join theirs
+          const theirs = await inviteFrom(target.uid).catch(() => null);
+          if (!alive.current) return;
+          if (theirs) { join.current = theirs; setCrossed(true); setPhase('joining'); return; }
           const { id, sent: t } = await createRace(target);
           const r = await getRace(id);
           if (!alive.current) return;
@@ -163,16 +169,24 @@ function RaceRoom({ mode, target, race, onExit, onAgain }) { // mode: 'bees' | '
     }
     if (phase === 'joining') {
       (async () => {
+        const want = join.current;
         try {
-          const fresh = await getRace(race.id);
-          if (!fresh || fresh.status !== 'open' || !inviteOpen(fresh)) { setR(fresh); setPhase('gone'); return; }
+          const fresh = await getRace(want.id);
+          if (!fresh || fresh.status !== 'open' || !inviteOpen(fresh)) {
+            if (ownInvite.current) { ownInvite.current = null; setPhase('waiting'); return; } // their invite ended meanwhile: keep waiting on yours
+            setR(fresh); setPhase('gone'); return;
+          }
           const { sent: t } = await acceptRace(fresh);
-          const r = await getRace(race.id);
+          if (ownInvite.current) { closeRace(ownInvite.current); ownInvite.current = null; } // the invites crossed: take yours back
+          const r = await getRace(want.id);
           if (!alive.current) return;
           off.current = clockOffset(r.joined, t); setR(r);
           RACES.set({ ...RACES.get(), invites: RACES.get().invites.filter(x => x.id !== r.id) });
           setGoAt(r.joined + LRACE.leadMs - off.current); setPhase('countdown');
-        } catch (e) { setErr(errCode(e)); setPhase('error'); }
+        } catch (e) {
+          if (ownInvite.current) { ownInvite.current = null; setPhase('waiting'); return; }
+          setErr(errCode(e)); setPhase('error');
+        }
       })();
     }
   }, [phase]);
@@ -191,6 +205,14 @@ function RaceRoom({ mode, target, race, onExit, onAgain }) { // mode: 'bees' | '
           if (r.status === 'on' && r.joined) { setGoAt(r.joined + LRACE.leadMs - off.current); setPhase('countdown'); }
           else if (r.status === 'off') setPhase('declined');
           else if (Date.now() + off.current - r.created > LRACE.inviteMs) { closeRace(r); setPhase('expired'); }
+          else if (checks.current++ < 12 || checks.current % 4 === 0) {
+            // did they invite you at the same moment? Both phones keep the older invite; if it's theirs, join it
+            const theirs = await inviteFrom(rival.uid).catch(() => null);
+            if (theirs && !stop && alive.current) {
+              setCrossed(true);
+              if (crossKeep(r, theirs).id === theirs.id) { stop = true; ownInvite.current = r; join.current = theirs; setPhase('joining'); }
+            }
+          }
         }
         if (phase === 'race' || phase === 'finish') {
           const o = raceOutcome(r, Date.now() + off.current);
@@ -271,6 +293,7 @@ function RaceRoom({ mode, target, race, onExit, onAgain }) { // mode: 'bees' | '
     body = html`<div class="race-live">
       <${BeeTrack} lanes=${lanes} />
       ${phase === 'countdown' ? html`<div class="race-count num" aria-live="assertive">${cd > 3 ? 'Klara…' : cd > 0 ? cd : 'Kör!'}</div>` : null}
+      ${phase === 'countdown' && crossed ? html`<div class="notice ok crossed" role="status"><${Icon} n="flower" /><span>You and ${rival.name} invited each other at the same time, so the race is on.</span></div>` : null}
       ${phase === 'finish' ? html`<div class="notice"><${Icon} n="flower" /><span>You reached the blomma in ${raceSecs(mine.ms)}. Waiting for ${rival.name}…</span></div>` : null}
       <${TypeBox} text=${text} easy=${easy} live=${phase === 'race'} startAt=${goAt} onProgress=${p => setMe({ chars: p.chars })} onDone=${onDone} label="Type the paragraph" />
     </div>`;

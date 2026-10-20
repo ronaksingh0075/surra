@@ -27,7 +27,7 @@ const HEAT_COPY = {
     lose: ['Sixten got there first', 'He’s quick. You’ll catch him on the road. But one more bee wants to race.'] },
   queen: { t: 'Fjälldrottningen', d: 'The queen bee of Kebnekaise has flown down from Sweden’s highest mountain to see who’s new. They say she has never lost a race.', sub: 'Queen bee' },
 };
-function IntroGauntlet({ level, onRaced, onDone }) {
+function IntroGauntlet({ level, cta, onRaced, onDone }) {
   const s = useApp();
   const heats = useMemo(() => introHeats(level), [level]);
   const [hi, setHi] = useState(0);
@@ -63,7 +63,7 @@ function IntroGauntlet({ level, onRaced, onDone }) {
       if (phase !== 'race' || R.current.over) return;
       const dt = R.current.last ? n - R.current.last : 0; R.current.last = n;
       if (queen) {
-        const q = queenStep(R.current.npc, dt, n - goAt, R.current.me, R.current.zoom);
+        const q = queenStep(R.current.npc, dt, n - goAt, R.current.me, R.current.zoom, text.length, n - (R.current.key || goAt));
         if (q.zooming && !R.current.zoom) sfx('whoosh');
         R.current.npc = q.at; R.current.zoom = q.zooming;
       } else R.current.npc = npcStep(R.current.npc, dt, heat.cps, text.length, heat.band, R.current.me);
@@ -88,7 +88,7 @@ function IntroGauntlet({ level, onRaced, onDone }) {
       ${rr ? html`<span class="hr">${rr.won ? html`<${Icon} n="check" s=${12} w=${3} />Won` : 'Lost'}</span>` : null}
     </li>`;
   })}</ol>`;
-  if (queen && phase === 'done') return html`<div class="card onb-race night" key="teaser">${strip}<${KebneTeaser} level=${level} onDone=${() => onDone({})} /></div>`;
+  if (queen && phase === 'done') return html`<div class="card onb-race night" key="teaser">${strip}<${KebneTeaser} level=${level} cta=${cta} onDone=${() => onDone({})} /></div>`;
   return html`<div class=${cx('card onb-race', queen && 'night')} key=${'heat' + hi}>
     ${strip}
     ${phase === 'ready' ? html`<div class=${cx('npc-intro', queen && 'qreveal')}><${NpcBee} npc=${bee} s=${queen ? 84 : 64} />
@@ -97,7 +97,7 @@ function IntroGauntlet({ level, onRaced, onDone }) {
     ${phase === 'countdown' ? html`<div class="race-count num" aria-live="assertive">${cd > 0 ? cd : 'Kör!'}</div>` : null}
     ${phase === 'whoosh' ? html`<div class="race-count whoosh" aria-live="assertive">Whoosh!</div>` : null}
     ${phase !== 'done' && phase !== 'whoosh' ? html`<${TypeBox} key=${'tb' + hi} text=${text} easy=${true} live=${phase === 'race'} startAt=${goAt} label="Type the sentence"
-        onProgress=${p => { R.current.me = p.chars / p.total; setView({ me: R.current.me, npc: R.current.npc, zoom: R.current.zoom }); }} onDone=${tr => end(true, tr)} />
+        onProgress=${p => { const at = p.chars / p.total; if (at !== R.current.me) R.current.key = Date.now(); R.current.me = at; setView({ me: R.current.me, npc: R.current.npc, zoom: R.current.zoom }); }} onDone=${tr => end(true, tr)} />
       <p class="faint onb-en">Means: ${en}</p>` : null}
     ${phase === 'ready' ? html`<div class="actions"><button class="btn primary wide" onClick=${start}><${Icon} n=${queen ? 'crown' : 'flower'} s=${20} />${queen ? 'Race the queen' : 'Start the race'}</button>
       ${hi === 0 ? html`<span class="faint onb-hint">Letter help is on: a, o and e count for å, ä and ö.</span>` : null}
@@ -113,7 +113,7 @@ function IntroGauntlet({ level, onRaced, onDone }) {
 }
 
 /* ---------- after the queen: where she lives, and the road there */
-function KebneTeaser({ level, onDone }) {
+function KebneTeaser({ level, cta, onDone }) {
   const s = useApp(), head = (s.intro && s.intro.km) || 0;
   return html`<div class="teaser" role="status">
     <${KebneScene} mode="teaser" label="Kebnekaise at night under the northern lights, with the queen bee landing on the summit" />
@@ -123,7 +123,7 @@ function KebneTeaser({ level, onDone }) {
     <${RoadToKiruna} level=${level} />
     <div class="motto"><span class="sp-lab"><${Icon} n="crown" s=${14} />Her motto, and your race on the summit</span><b class="sv" lang="sv">${QUEEN.motto}</b><span>${QUEEN.mottoEn} ${QUEEN.note}</span></div>
     ${head ? html`<p class="teaser-km num"><${Icon} n="road" s=${17} />+${head} km head start</p>` : null}
-    <button class="btn primary wide onb-next" onClick=${onDone}>Start the road to Kiruna<${Icon} n="arrowR" s=${20} /></button>
+    <button class="btn primary wide onb-next" onClick=${onDone}>${cta || 'Start the road to Kiruna'}<${Icon} n="arrowR" s=${20} /></button>
   </div>`;
 }
 // the five regions from your first city to Kiruna, with Kebnekaise at the end
