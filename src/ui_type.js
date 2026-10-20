@@ -95,6 +95,7 @@ function TypeQ({ q, s, check, phase }) {
 
 /* ---------- the race track: bees flying to the blomma */
 function RaceBee({ lane }) {
+  if (lane.npc) return html`<${NpcBee} npc=${lane.npc} s=${36} />`;
   if (lane.p && lane.p.avatar) return html`<${Avatar} p=${lane.p} s=${28} />`;
   return html`<svg width="34" height="34" viewBox="-16 -16 32 32" class=${cx('bee', lane.tint)} aria-hidden="true"><${BeeShape} /></svg>`;
 }

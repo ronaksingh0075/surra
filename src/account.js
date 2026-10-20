@@ -94,6 +94,14 @@ function mergeStates(acc, guest) {
   for (const [k, v] of Object.entries(guest.ach)) m.ach[k] = m.ach[k] ? Math.min(m.ach[k], v) : v;
   for (const [k, v] of Object.entries(guest.mistakes)) if (!m.mistakes[k] || (v.t || 0) > (m.mistakes[k].t || 0)) m.mistakes[k] = v;
   for (const [d, v] of Object.entries(guest.log)) m.log[d] = (m.log[d] || 0) + v;
+  // boss bees: a win on either device counts; the first race's head start counts once
+  m.bosses = m.bosses || {};
+  for (const [k, v] of Object.entries(guest.bosses || {})) {
+    const a = m.bosses[k] || {}, won = [a.won, v.won].filter(Boolean), best = [a.best, v.best].filter(Boolean);
+    m.bosses[k] = { won: won.length ? Math.min(...won) : 0, tries: (a.tries || 0) + (v.tries || 0), ...(best.length ? { best: Math.min(...best) } : {}) };
+  }
+  if (acc.intro && guest.intro) m.extraKm -= Number(guest.intro.km) || 0;
+  m.intro = acc.intro || guest.intro || null;
   ['answers', 'correct', 'talks', 'ownGood', 'perfect', 'fixed', 'typed', 'races', 'raceWins'].forEach(k => { m.stats[k] = (acc.stats[k] || 0) + (guest.stats[k] || 0); });
   ['bestCombo', 'quickBest', 'bestWpm'].forEach(k => { m.stats[k] = Math.max(acc.stats[k] || 0, guest.stats[k] || 0); });
   if (!m.profile.name && guest.profile.name) m.profile = $clone(guest.profile);

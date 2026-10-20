@@ -193,6 +193,7 @@ function PracticeTab({ s, startAction, openStop }) {
         </button>`;
       })}
     </section>` : null}
+    <${BossList} s=${s} start=${startAction} openStop=${openStop} />
     <section class="card" style="margin-top:16px">
       <div class="sec-head"><h2 class="display">Checkpoints</h2></div>
       <p class="muted sec-sub">12 questions from a whole region. Pass to unlock the next one, or retake for practice.</p>
@@ -275,6 +276,7 @@ function App() {
       else if (a.lesson === 'type' || a.lesson === 'hear') setRoom({ name: 'lesson', lesson: lessonType(a.sid, a.lesson === 'hear' ? 'hear' : 'see'), k });
       else setRoom(ENV.get().ai === 'off' ? { name: 'lesson', lesson: lessonGuided(a.sid), k } : { name: 'talk', sid: a.sid, k });
     } else if (a.type === 'checkpoint') setRoom({ name: 'lesson', lesson: lessonCheckpoint(a.li), k });
+    else if (a.type === 'boss') { if (bossReady(S(), a.sid)) setRoom({ name: 'boss', sid: a.sid, k }); else setSheet({ type: 'stop', sid: a.sid }); }
     else if (a.type === 'review') setRoom({ name: 'lesson', lesson: lessonReview(S()), k });
     else if (a.type === 'quick') setRoom({ name: 'quick', k });
     else if (a.type === 'letters') setRoom({ name: 'lesson', lesson: lessonLetters(), k });
@@ -306,6 +308,7 @@ function App() {
   else if (room && room.name === 'quick') roomEl = html`<${Quick} key=${room.k} onExit=${closeRoom} />`;
   else if (room && room.name === 'duel') roomEl = html`<${DuelRoom} key=${room.k} mode=${room.mode} target=${room.target} challenge=${room.challenge} onExit=${closeRoom}
     onDecline=${room.challenge ? (async () => { try { await declineChallenge(room.challenge); toast(`You declined ${room.challenge.fromName}'s challenge`, 'swords'); } catch (e) { toast("Couldn't decline right now. Try again.", 'info'); } closeRoom(); }) : null} />`;
+  else if (room && room.name === 'boss') roomEl = html`<${BossRoom} key=${room.k} sid=${room.sid} onExit=${closeRoom} onNext=${continueJourney} onAgain=${() => setRoom({ name: 'boss', sid: room.sid, k: Date.now() })} />`;
   else if (room && room.name === 'race') roomEl = html`<${RaceRoom} key=${room.k} mode=${room.mode} target=${room.target} race=${room.race} onExit=${closeRoom} onAgain=${o => setRoom({ name: 'race', ...o, k: Date.now() })} />`;
   else if (room && room.name === 'generate') roomEl = html`<${Generate} key=${room.k} sid=${room.sid} onExit=${closeRoom} onReady=${lesson => setRoom({ name: 'lesson', lesson, k: Date.now() })} />`;
   return html`<div class=${cx('shell', 'tab-' + tab)}>

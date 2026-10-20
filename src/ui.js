@@ -56,6 +56,7 @@ const ICONS = {
   shield: ['M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.9-4.3-1.6-7.5-5.3-7.5-9.9V6z', 'M8.8 12.2l2.3 2.3 4.2-4.6'],
   flower: [circ(12, 8.5, 2), circ(12, 4.6, 2), circ(15.6, 7.2, 2), circ(14.2, 11.4, 2), circ(9.8, 11.4, 2), circ(8.4, 7.2, 2), 'M12 13.4V21', 'M12 18c-2.4 0-4-1.4-4.6-3.6 2.4.1 4.1 1.3 4.6 3.6z'],
   keyboard: ['M3 6.5h18v11H3z', 'M6.5 10h.01M9.5 10h.01M12.5 10h.01M15.5 10h.01M18 10h.01M6.5 13.5h.01M18 13.5h.01', 'M9 14h6'],
+  crown: ['M4.5 17.5L3 7.5l5 4.2L12 5l4 6.7 5-4.2-1.5 10z', 'M5 20.5h14'],
 };
 const GLYPHS = {
   tower: ['M9 21V4.5l6-1.5v18', 'M9 8.5l6-1.6M9 12.5l6-1.6M9 16.5l6-1.6', 'M6 21h12'],
@@ -204,6 +205,7 @@ function ContinueCard({ s, startAction, openStop, openRegion }) {
       </div>
     </section>`;
   }
+  if (a.type === 'boss') return html`<${BossCard} s=${s} sid=${a.sid} startAction=${startAction} openStop=${openStop} />`;
   if (a.type === 'checkpoint') {
     const L = LEVELS[a.li], nx = LEVELS[a.li + 1];
     return html`<section class="card cont" aria-label="Checkpoint">
@@ -276,7 +278,7 @@ function RegionSheet({ li, s, onClose, openStop, start }) {
         <button class="btn ghost wide" style="margin-top:10px" onClick=${() => start({ type: 'checkpoint', li })}>Retake for practice</button>`
       : unlocked ? html`<div class="tip"><${Icon} n="flag" /><span>12 questions mixed from all four stops. Get 9 right to ${nx ? `unlock ${nx.region}` : 'finish the journey'}. Feeling confident? Take it now to skip ahead.</span></div>
         <button class="btn primary wide" style="margin-top:10px" onClick=${() => start({ type: 'checkpoint', li })}>Take the ${L.id} checkpoint</button>`
-      : html`<div class="lockmsg"><${Icon} n="lock" />Pass the ${LEVELS[li - 1].id} checkpoint to unlock ${L.region}.</div>`}
+      : html`<div class="lockmsg"><${Icon} n="lock" />${levelLockReason(s, li)}</div>`}
     </div>
   <//>`;
 }
@@ -285,9 +287,19 @@ function RoadLine({ s, sid }) {
   return html`<div class="roadline"><${Icon} n="road" s=${17} /><span>${i > 0 ? `${STOPS[ORDER[i - 1]].city} to ${STOPS[sid].city}` : `Into ${STOPS[sid].city} over the Öresund Bridge`}: <b>${total} km</b>${got ? ` · ${got} covered` : ''}${got >= total ? ' · all of it' : ''}</span>
     ${isSafe(sid) ? html`<span class="safe-note"><${Icon} n="shield" s=${15} />Safehouse: no challenges in or out here</span>` : null}</div>`;
 }
+// why a region is still locked: its checkpoint, a boss bee on the road before it, or both
+function levelLockReason(s, li) {
+  const cp = !s.checkpoints[LEVEL_IDS[li - 1]], b = blockingBoss(s, LEVELS[li].stops[0]);
+  const who = b ? `${BOSSES[b].name} in ${STOPS[b].city}` : '';
+  if (cp && b) return `Beat ${who} and pass the ${LEVELS[li - 1].id} checkpoint to unlock ${LEVELS[li].region}.`;
+  if (b) return `Beat ${who}, the boss bee who guards the road, to unlock ${LEVELS[li].region}.`;
+  return `Pass the ${LEVELS[li - 1].id} checkpoint to unlock ${LEVELS[li].region}.`;
+}
 function lockReason(s, sid) {
   const li = LEVEL_INDEX[sid];
-  if (!levelUnlocked(s, li)) return `Pass the ${LEVELS[li - 1].id} checkpoint to unlock ${LEVELS[li].region}.`;
+  if (!levelUnlocked(s, li)) return levelLockReason(s, li);
+  const b = blockingBoss(s, sid);
+  if (b) return `Beat ${BOSSES[b].name}, the boss bee of ${STOPS[b].city}, to travel on.`;
   const st = LEVELS[li].stops, k = st.indexOf(sid);
   return `Finish “Respond” in ${STOPS[st[k - 1]].city} first, or pass the ${LEVELS[li].id} checkpoint to skip ahead.`;
 }
@@ -337,6 +349,7 @@ function StopSheet({ sid, s, onClose, start }) {
         </button>` : null}
       </div>`
       : html`<div class="section lockmsg"><${Icon} n="lock" /><span>${lockReason(s, sid)}</span></div>`}
+    ${BOSSES[sid] && open ? html`<div class="section"><span class="eyebrow">Boss bee</span><${BossRow} s=${s} sid=${sid} start=${start} next=${a.type === 'boss' && a.sid === sid} /></div>` : null}
     <div class="section"><div class="tip"><${Icon} n="bulb" /><span><b>Culture note.</b> ${st.culture}</span></div></div>
     <div class="section"><span class="eyebrow">Did you know? · ${factsUnlocked(s, sid)}/${FACTS[sid].length}</span>
       <div class="factlist">${FACTS[sid].map((f, i) => (i < factsUnlocked(s, sid) ? html`<${FactCard} key=${i} sid=${sid} i=${i} city=${false} />` : html`<${LockedFact} key=${i} sid=${sid} i=${i} />`))}
@@ -1022,8 +1035,10 @@ function Settings({ go, embedded }) {
 /* ---------- onboarding */
 function Onboarding({ done, go }) {
   const s = useApp();
+  const [step, setStep] = useState(0); // 0: your Swedish, 1: a first race against Bettan, 2: your journey
   const [start, setStart] = useState(s.start || 'A2');
   const [work, setWork] = useState(s.settings.work || 'mix');
+  const [race, setRace] = useState(null);
   const preview = useMemo(() => withDefaults({ ...freshState(), start }), [start]);
   const startOpts = [
     { v: 'A1', b: 'New to Swedish', t: 'Start in Malmö with greetings and fika.' },
@@ -1031,26 +1046,51 @@ function Onboarding({ done, go }) {
     { v: 'B1', b: 'I can hold a simple conversation', t: 'Start in Örebro with opinions, meetings and interviews.' },
     { v: 'B2', b: "I'm comfortable but want nuance", t: 'Start in Gävle with hints, negotiation and storytelling.' },
   ];
-  return html`<div class="wrap"><div class="onb">
+  const top = () => { try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } };
+  const goStep = n => { setStep(n); top(); };
+  // the first race gives a head start, once: 10 km for a win, 5 for trying
+  const raced = r => {
+    if (r.skipped) return;
+    let first = 0;
+    update(x => {
+      if (!x.intro) { const km = addResultKm(x, r.won ? INTRO.win : INTRO.lose); x.intro = { at: Date.now(), won: r.won, wpm: r.wpm || 0, km }; }
+      first = x.intro.km || 0;
+      if (r.wpm) x.stats.bestWpm = Math.max(x.stats.bestWpm || 0, r.wpm);
+    });
+    setRace({ ...r, km: first });
+  };
+  const finish = () => { update(x => { x.onboarded = true; x.start = start; x.settings.work = work; x.settings.news = NEWS.id; }); done(); top(); };
+  const dots = html`<div class="onb-steps" role="img" aria-label=${`Step ${step + 1} of 3`}>${[0, 1, 2].map(i => html`<span class=${cx('dot', i === step && 'on', i < step && 'done')}></span>`)}</div>`;
+  if (step === 0) return html`<div class="wrap"><div class="onb">
+    ${dots}
     <div class="onb-hero">
       <${BeeLogo} s=${64} />
       <h1 class="display">Surra</h1>
       <p>Travel Sweden from Malmö to Kiruna and learn to <b>respond</b> in real conversations, from fika small talk to job interviews and negotiations. A1 to C1.</p>
       <${OnboardSignIn} />
     </div>
+    <div class="card"><span class="eyebrow">How much Swedish do you know?</span>
+      <div class="choice" style="margin-top:10px">${startOpts.map(o => html`<button aria-pressed=${String(start === o.v)} onClick=${() => setStart(o.v)}><span class="lvl" style="width:44px;height:44px">${o.v}</span><span class="tx"><b>${o.b}</b><span>${o.t}</span></span></button>`)}</div>
+    </div>
+    <button class="btn primary wide onb-next" onClick=${() => goStep(1)}>Next<${Icon} n="arrowR" s=${20} /></button>
+  </div></div>`;
+  if (step === 1) return html`<div class="wrap"><div class="onb">
+    ${dots}
+    <div class="card"><${IntroRace} key=${start} level=${start} result=${race} onResult=${raced} onNext=${() => goStep(2)} /></div>
+    ${race ? null : html`<button class="linkbtn onb-back" onClick=${() => goStep(0)}>Back</button>`}
+  </div></div>`;
+  return html`<div class="wrap"><div class="onb">
+    ${dots}
     <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:18px">
-      <div class="card"><span class="eyebrow">Where should your journey start?</span>
-        <div class="choice" style="margin-top:10px">${startOpts.map(o => html`<button aria-pressed=${String(start === o.v)} onClick=${() => setStart(o.v)}><span class="lvl" style="width:44px;height:44px">${o.v}</span><span class="tx"><b>${o.b}</b><span>${o.t}</span></span></button>`)}</div>
-      </div>
       <div class="card"><span class="eyebrow">How the race works</span>
-        <p class="muted" style="font-size:14px;margin-top:8px">Every lesson covers real road between cities, from 30 km into Malmö to 360 km into Umeå. The players race is ranked by kilometres.</p>
+        <p class="muted" style="font-size:14px;margin-top:8px">Every lesson covers real road between cities, from 30 km into Malmö to 360 km into Umeå, and the players race is ranked by kilometres. Boss bees guard the four safehouses: beat them to travel on.</p>
         <span class="eyebrow" style="display:block;margin-top:18px">Your field</span>
         <div style="margin-top:10px"><${Seg} label="Your field" value=${work} options=${[{ v: 'mix', l: 'Mix' }, { v: 'general', l: 'Office' }, { v: 'life', l: 'Life sciences' }]} onChange=${setWork} /></div>
         <p class="muted" style="font-size:13.5px;margin-top:8px">${WORK_HELP[work]}</p>
       </div>
     </div>
     <div class="mapcard onb-map" aria-hidden="true"><${ZoomMap} s=${preview} interactive=${false} /></div>
-    <button class="btn primary wide" style="max-width:420px;justify-self:center" onClick=${() => { update(x => { x.onboarded = true; x.start = start; x.settings.work = work; x.settings.news = NEWS.id; }); done(); try { window.scrollTo(0, 0); } catch (e) { /* ignore */ } }}>Start my journey<${Icon} n="arrowR" s=${20} /></button>
+    <button class="btn primary wide onb-next" onClick=${finish}>Start my journey<${Icon} n="arrowR" s=${20} /></button>
   </div></div>`;
 }
 

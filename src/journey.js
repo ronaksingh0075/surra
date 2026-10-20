@@ -1,7 +1,7 @@
 /* ================= Surra journey: kilometres on the road, the race standings and safehouses =================
    Kilometres replace XP. Each city's three lessons cover the real road into that city (Malmö to Ystad is 60 km),
-   scaled by stars, so a perfect journey from Malmö to Kiruna is about 2,700 km. Lab lessons are 20 km side trips
-   and a passed checkpoint is worth 50 km. Practice (reviews, Snabbsvar, replays, typing) earns detours: about 1 km
+   scaled by stars, so a perfect journey from Malmö to Kiruna is about 2,700 km. Lab lessons are 20 km side trips,
+   and a passed checkpoint or a beaten boss bee is worth 50 km. Practice (reviews, Snabbsvar, replays, typing) earns detours: about 1 km
    per right answer, up to 40 km a day, so the standings follow the journey rather than grinding.
    Challenges put kilometres at stake: a quarter of the road between the two players' cities (10 to 100 km).
    Safehouses (Malmö, Göteborg, Stockholm, Umeå): nobody can challenge you there and you can't challenge from one.
@@ -17,7 +17,7 @@ const SAFEHOUSES = ['malmo', 'goteborg', 'stockholm', 'umea'];
 const KM = {
   share: { learn: 0.3, reply: 0.4, talk: 0.3 }, // of the road into the city, at three stars
   stars: [0, 0.5, 0.75, 1], // 1 star covers half of a lesson's share, 2 stars three quarters
-  life: 20, checkpoint: 50, detourCap: 40,
+  life: 20, checkpoint: 50, boss: 50, detourCap: 40,
   stakeMin: 10, stakeMax: 100, raceStake: 10,
 };
 const CUM_KM = (() => { let t = 0; const o = {}; ORDER.forEach(sid => { t += ROAD_KM[sid] || 0; o[sid] = t; }); return o; })();
@@ -48,6 +48,7 @@ function tripKm(s) {
     if (LIFE[sid]) t += lessonKm(sid, 'life', starsOf(s, sid, 'life'));
   }
   for (const id of LEVEL_IDS) if (s.checkpoints[id]) t += KM.checkpoint;
+  for (const sid of Object.keys(BOSSES)) if (bossWon(s, sid)) t += KM.boss; // a beaten boss bee (bosses.js)
   return t;
 }
 const totalKm = s => Math.max(0, Math.round(tripKm(s) + (Number(s.extraKm) || 0)));

@@ -46,6 +46,8 @@ const ACH = [
   { id: 'duel1', sv: 'Utmanare', en: 'Win a challenge on the players map', icon: 'swords' },
   { id: 'race1', sv: 'Snabba vingar', en: 'Win a typing race against another player', icon: 'flower' },
   { id: 'letters', sv: 'Prickfri', en: 'Three stars in the å, ä, ö drill', icon: 'keyboard' },
+  { id: 'boss1', sv: 'Bossbesegrare', en: 'Beat a boss bee', icon: 'crown' },
+  { id: 'boss4', sv: 'Fyra kronor', en: 'Beat all four boss bees', icon: 'crown' },
   { id: 'factsAll', sv: 'Allvetare', en: 'Unlock all 80 facts', icon: 'book' },
   { id: 'night', sv: 'Nattuggla', en: 'Practise after 22:00', icon: 'moon' },
   { id: 'morning', sv: 'Morgonpigg', en: 'Practise before 07:00', icon: 'sun' },
@@ -77,7 +79,7 @@ const LS_KEY = 'surra.progress.v1';
 function freshState() {
   return {
     v: 1, kmv: 1, onboarded: false, start: 'A2', goal: 60,
-    extraKm: 0, detour: { d: '', n: 0 }, log: {}, lessons: {}, checkpoints: {}, cpTried: {}, mistakes: {}, ach: {},
+    extraKm: 0, detour: { d: '', n: 0 }, log: {}, lessons: {}, checkpoints: {}, cpTried: {}, mistakes: {}, ach: {}, bosses: {}, intro: null,
     stats: { answers: 0, correct: 0, bestCombo: 0, talks: 0, ownGood: 0, quickBest: 0, perfect: 0, fixed: 0, typed: 0, bestWpm: 0, races: 0, raceWins: 0 },
     settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto', news: '', snooze: {}, letters: 'easy', spoken: true },
     profile: { name: '', avatar: 'bee', color: 'fjord' }, owner: null,
@@ -193,18 +195,21 @@ async function initSync() {
 const startIdx = s => Math.max(0, LEVEL_IDS.indexOf(s.start));
 const starsOf = (s, sid, l) => s.lessons[sid + ':' + l] || 0;
 const stopDone = (s, sid) => starsOf(s, sid, 'reply') > 0;
-function levelUnlocked(s, li) { return li <= startIdx(s) || !!s.checkpoints[LEVEL_IDS[li - 1]]; }
+// a region opens with the checkpoint before it, and only once every boss bee on the road so far is beaten (bosses.js)
+function levelUnlocked(s, li) { return li <= startIdx(s) || (!!s.checkpoints[LEVEL_IDS[li - 1]] && bossesBefore(s, LEVELS[li].stops[0])); }
 function stopOpen(s, sid) {
   const li = LEVEL_INDEX[sid];
   if (!levelUnlocked(s, li)) return false;
-  if (li < startIdx(s) || s.checkpoints[LEVEL_IDS[li]]) return true;
+  if (li < startIdx(s)) return true;
+  if (!bossesBefore(s, sid)) return false; // the road past a safehouse opens when its boss is beaten
+  if (s.checkpoints[LEVEL_IDS[li]]) return true;
   const st = LEVELS[li].stops, k = st.indexOf(sid);
   return k === 0 || stopDone(s, st[k - 1]);
 }
 function nextAction(s) {
   for (let li = startIdx(s); li < LEVELS.length; li++) {
     const L = LEVELS[li];
-    if (s.checkpoints[L.id]) continue;
+    if (s.checkpoints[L.id]) { const b = L.stops.find(x => BOSSES[x] && !bossClear(s, x)); if (b) return { type: 'boss', sid: b }; continue; }
     if (!levelUnlocked(s, li)) return { type: 'locked', li };
     for (let k = 0; k < L.stops.length; k++) {
       const sid = L.stops[k];
@@ -214,6 +219,7 @@ function nextAction(s) {
       const nx = L.stops[k + 1];
       const nextStarted = nx && (starsOf(s, nx, 'learn') || starsOf(s, nx, 'reply'));
       if (!starsOf(s, sid, 'talk') && !nextStarted && !(k === L.stops.length - 1 && s.cpTried[L.id])) return { type: 'lesson', sid, lesson: 'talk' };
+      if (BOSSES[sid] && !bossClear(s, sid)) return { type: 'boss', sid };
     }
     return { type: 'checkpoint', li };
   }
@@ -221,7 +227,7 @@ function nextAction(s) {
 }
 function currentStop(s) {
   const a = nextAction(s);
-  if (a.type === 'lesson') return a.sid;
+  if (a.type === 'lesson' || a.type === 'boss') return a.sid;
   if (a.type === 'checkpoint') return LEVELS[a.li].stops[3];
   return 'kiruna';
 }
@@ -231,7 +237,7 @@ function levelState(s, li) {
   if (!levelUnlocked(s, li)) return 'locked';
   if (li < startIdx(s)) return 'review';
   const a = nextAction(s);
-  if ((a.type === 'lesson' && LEVEL_INDEX[a.sid] === li) || (a.type === 'checkpoint' && a.li === li)) return 'current';
+  if (((a.type === 'lesson' || a.type === 'boss') && LEVEL_INDEX[a.sid] === li) || (a.type === 'checkpoint' && a.li === li)) return 'current';
   return 'open';
 }
 function stampState(s, sid) {
@@ -279,6 +285,9 @@ function evalAchievements(s) {
   if (km >= 1500) addAch(s, 'km1500');
   if ((s.stats.raceWins || 0) >= 1) addAch(s, 'race1');
   if ((s.lessons['type:letters'] || 0) >= 3) addAch(s, 'letters');
+  const bosses = Object.keys(BOSSES).filter(sid => bossWon(s, sid)).length;
+  if (bosses >= 1) addAch(s, 'boss1');
+  if (bosses >= Object.keys(BOSSES).length) addAch(s, 'boss4');
   if (s.stats.quickBest >= 15) addAch(s, 'quick15');
   if (s.stats.fixed >= 10) addAch(s, 'fix10');
   LEVEL_IDS.forEach(id => { if (s.checkpoints[id]) addAch(s, 'cp_' + id); });

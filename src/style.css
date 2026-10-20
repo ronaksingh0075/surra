@@ -908,3 +908,51 @@ p { margin: 0; }
 .race-qi { width: 72px; height: 72px; border-radius: 24px; display: grid; place-items: center; background: var(--glow-soft); color: var(--falu); }
 .race-intro .beetrack, .results .beetrack { max-width: 520px; }
 .raceinvite { box-shadow: var(--shadow), inset 0 0 0 2px color-mix(in srgb, var(--moss) 55%, transparent); }
+
+/* ---------- 1.7: NPC bees (Bettan and the boss bees), onboarding steps, boss battles */
+.bee.npc { overflow: visible; }
+.bee.npc .crown { fill: var(--gold); stroke: var(--ink); stroke-width: .9; stroke-linejoin: round; }
+.bee.npc.tint-falu .crown { fill: #E9A23B; } .bee.npc.tint-fjord .crown { fill: #7DB4E0; }
+.bee.npc.tint-ljung .crown { fill: #C59BE8; } .bee.npc.tint-moss .crown { fill: #8ED19D; }
+.bee.npc.tint-falu .body { fill: #F2B04A; } .bee.npc.tint-fjord .body { fill: #F4C95A; }
+.bee.npc.tint-ljung .body { fill: #F0BC3E; } .bee.npc.tint-moss .body { fill: #F6D35C; }
+.bee.npc .bow circle { fill: #F08BA6; stroke: var(--ink); stroke-width: .7; }
+.bee.npc .bow .mid { fill: #FFD3DE; }
+.onb-steps { display: flex; justify-content: center; gap: 8px; }
+.onb-steps .dot { width: 9px; height: 9px; border-radius: 99px; background: var(--line); transition: width .25s ease, background .25s ease; }
+.onb-steps .dot.on { width: 26px; background: var(--glow); }
+.onb-steps .dot.done { background: var(--moss); }
+.onb-next { max-width: 420px; justify-self: center; }
+.onb-back { justify-self: center; }
+.onb-race { display: grid; gap: 14px; }
+.npc-intro { display: flex; gap: 12px; align-items: center; }
+.npc-intro .tx { display: grid; gap: 4px; min-width: 0; }
+.npc-intro b { font-size: 19px; }
+.npc-intro span { font-size: 14px; color: var(--ink-2); line-height: 1.4; }
+.onb-en { font-size: 13.5px; margin-top: -6px; }
+.onb-race .actions { display: grid; gap: 10px; justify-items: center; }
+.onb-result { display: grid; gap: 4px; padding: 16px; border-radius: var(--r-lg); text-align: center; background: var(--surface-2); }
+.onb-result.win { background: var(--moss-soft); }
+.onb-result b { font-size: 28px; line-height: 1.05; color: var(--ink); }
+.onb-result.win b { color: var(--moss); }
+.onb-result > span { font-weight: 900; color: var(--falu); }
+.onb-result p { font-size: 14px; color: var(--ink-2); margin-top: 4px; }
+.bosscard { box-shadow: var(--shadow), inset 0 0 0 2px color-mix(in srgb, var(--gold) 60%, transparent); }
+.bosscard-top { display: flex; gap: 12px; align-items: center; position: relative; }
+.bosscard-top .tx { min-width: 0; }
+.bosscard .bosscard-top h2 { font-size: clamp(30px, 8vw, 44px); }
+.bosscard-tries { margin-block: 6px 14px; font-size: 14px; }
+.bosscard .theme { font-size: 16px; font-weight: 700; color: var(--ink-2); }
+.bosscard .theme + .row { margin-top: 16px; }
+.onb-hint { font-size: 13px; text-align: center; }
+.boss-intro .bee.npc { margin-bottom: 2px; }
+.boss-intro .eyebrow { display: inline-flex; gap: 6px; align-items: center; }
+.bossq { display: grid; gap: 12px; }
+.bossq .bubble .big.sv { font-size: 22px; }
+.motto { display: grid; gap: 4px; padding: 14px 16px; border-radius: var(--r-lg); background: var(--glow-soft); text-align: left; max-width: 46ch; width: 100%; }
+.motto .sp-lab { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.motto b { font-size: 19px; }
+.motto > span:last-child { font-size: 14px; color: var(--ink-2); line-height: 1.4; }
+.bossrow[disabled] { opacity: .6; cursor: default; }
+.lessonrow .li.npc-li { background: var(--glow-soft); }
+.room.boss .lane-bee .bee.npc { margin-bottom: 2px; }

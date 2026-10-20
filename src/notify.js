@@ -47,6 +47,7 @@ function nextLabel(s) {
   const a = nextAction(s);
   if (a.type === 'lesson') { const leg = legOf(s); return `${STOPS[a.sid].city} · ${LESSON_META[a.lesson].en}${leg.sid === a.sid && leg.left ? ` · ${leg.left} km to go` : ''}`; }
   if (a.type === 'checkpoint') return `the ${LEVELS[a.li].id} checkpoint`;
+  if (a.type === 'boss') return `${STOPS[a.sid].city} · Boss battle with ${BOSSES[a.sid].name}`;
   return 'a review round';
 }
 const profileName = s => ((s.profile && s.profile.name) || '').trim().slice(0, 24) || 'Traveller';
@@ -283,8 +284,12 @@ function promptFor(s, a, P) {
 
 /* ---------- what's new: shown once to people who were already on the road before this release */
 const NEWS = {
-  id: '1.6',
+  id: '1.7',
   items: [
+    { icon: 'crown', t: 'Boss bees', d: 'Malte, Gösta, Stina and Ulla guard the four safehouses. Answer eight replies and type their motto before they reach the blomma to travel on, and win 50 km.' },
+    { icon: 'road', t: 'Your road stays open', d: 'Already past a safehouse? Nothing is locked. Challenge its boss any time from the city for the kilometres and the badge.' },
+  ],
+  older: [
     { icon: 'road', t: 'Journey kilometres', d: 'XP and streaks are gone. Lessons now cover the real road between cities, and the race is ranked by kilometres.' },
     { icon: 'swords', t: 'Kilometres at stake', d: 'Challenge anyone within two cities as often as you like. Win and you gain a share of the road between you, lose and it comes off your total.' },
     { icon: 'shield', t: 'Safehouses', d: 'Malmö, Göteborg, Stockholm and Umeå are safe: no challenges in or out, so you can learn without losing kilometres.' },

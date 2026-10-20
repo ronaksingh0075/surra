@@ -1,13 +1,14 @@
 {
   "name": "surra",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.7.0",
   "description": "Surra: Swedish conversation practice from A1 to C1, as an installable web app.",
   "scripts": {
     "validate": "node tools/validate.js",
     "build": "node tools/validate.js && node tools/build.js && node tools/build-notifier.js",
     "notifier": "node tools/build-notifier.js",
-    "map": "node tools/mapgen.js"
+    "map": "node tools/mapgen.js",
+    "release": "npm run build && node tools/release-check.js"
   },
   "devDependencies": {
     "@fontsource-variable/nunito": "^5.1.0",
