@@ -1,6 +1,6 @@
 /* ================= Surra core: state, progress rules, AI, speech, sound ================= */
 'use strict';
-const { html, render, useState, useEffect, useRef, useMemo, useCallback } = window.htmPreact;
+const { html, render, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } = window.htmPreact;
 
 /* ---------- small utils */
 const $clone = o => JSON.parse(JSON.stringify(o));
@@ -83,7 +83,7 @@ function freshState() {
     v: 1, kmv: 1, onboarded: false, start: 'A2', goal: 60,
     extraKm: 0, detour: { d: '', n: 0 }, log: {}, lessons: {}, checkpoints: {}, cpTried: {}, mistakes: {}, ach: {}, bosses: {}, intro: null, climb: {},
     stats: { answers: 0, correct: 0, bestCombo: 0, talks: 0, ownGood: 0, quickBest: 0, perfect: 0, fixed: 0, typed: 0, bestWpm: 0, races: 0, raceWins: 0 },
-    settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto', news: '', snooze: {}, letters: 'easy', spoken: true },
+    settings: { translations: 'show', work: 'mix', rate: 'normal', sound: true, nudge: true, palette: 'mysig', mode: 'auto', news: '', snooze: {}, letters: 'easy', spoken: true, keys: 'surra' },
     profile: { name: '', avatar: 'bee', color: 'fjord' }, owner: null,
     community: { joined: false, applied: {}, races: {} },
     createdAt: Date.now(), updatedAt: 0,

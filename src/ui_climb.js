@@ -280,7 +280,7 @@ function ClimbRoom({ onExit, onNext, onAgain }) {
         : html`<${ClimbBanner} fb=${fb} onGo=${fb && !fb.ok ? nextPitch : null} />`}
       ${cur.rope ? html`<div class="climbq rope">
           <div class="notice rope-note"><${Icon} n="keyboard" /><span><b>Rope pitch!</b> Type the line before your grip goes.</span></div>
-          <${TypeBox} key=${'rope' + clock.at} text=${typeClean(cur.rope[0])} easy=${true} live=${phase === 'pitch'} startAt=${clock.at} label="Type the line" onDone=${() => resolve(true, 'rope')} />
+          <${TypeBox} key=${'rope' + clock.at} text=${typeClean(cur.rope[0])} easy=${true} live=${phase === 'pitch'} night=${true} startAt=${clock.at} label="Type the line" onDone=${() => resolve(true, 'rope')} />
           <p class="faint onb-en">${cur.rope[1]}</p>
         </div>`
       : q ? html`<div key=${q.uid} class="bossq climbq">
@@ -315,7 +315,7 @@ function ClimbRoom({ onExit, onNext, onAgain }) {
   else if (racing) body = html`<div class="race-live">
       <${BeeTrack} lanes=${lanes} />
       ${phase === 'qcount' ? html`<div class="race-count num" aria-live="assertive">${Math.ceil((goAt - now) / 1000) > 0 ? Math.ceil((goAt - now) / 1000) : 'Kör!'}</div>` : null}
-      <${TypeBox} text=${qText} easy=${true} live=${phase === 'qrace'} startAt=${goAt} label="Type the queen's motto" onProgress=${p => { R.current.me = p.chars / p.total; setQv({ me: R.current.me, q: R.current.q }); }} onDone=${tr => queenEnd(true, tr)} />
+      <${TypeBox} text=${qText} easy=${true} live=${phase === 'qrace'} armed=${phase === 'qcount'} night=${true} startAt=${goAt} label="Type the queen's motto" onProgress=${p => { R.current.me = p.chars / p.total; setQv({ me: R.current.me, q: R.current.q }); }} onDone=${tr => queenEnd(true, tr)} />
       <p class="faint onb-en">${QUEEN.mottoEn}</p>
     </div>`;
   else if (phase === 'qdone' && qres && qres.won) {

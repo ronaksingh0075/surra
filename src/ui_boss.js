@@ -96,7 +96,7 @@ function IntroGauntlet({ level, cta, onRaced, onDone }) {
     <${BeeTrack} lanes=${lanes} />
     ${phase === 'countdown' ? html`<div class="race-count num" aria-live="assertive">${cd > 0 ? cd : 'Kör!'}</div>` : null}
     ${phase === 'whoosh' ? html`<div class="race-count whoosh" aria-live="assertive">Whoosh!</div>` : null}
-    ${phase !== 'done' && phase !== 'whoosh' ? html`<${TypeBox} key=${'tb' + hi} text=${text} easy=${true} live=${phase === 'race'} startAt=${goAt} label="Type the sentence"
+    ${phase !== 'done' && phase !== 'whoosh' ? html`<${TypeBox} key=${'tb' + hi} text=${text} easy=${true} live=${phase === 'race'} armed=${phase === 'countdown'} night=${queen} startAt=${goAt} label="Type the sentence"
         onProgress=${p => { const at = p.chars / p.total; if (at !== R.current.me) R.current.key = Date.now(); R.current.me = at; setView({ me: R.current.me, npc: R.current.npc, zoom: R.current.zoom }); }} onDone=${tr => end(true, tr)} />
       <p class="faint onb-en">Means: ${en}</p>` : null}
     ${phase === 'ready' ? html`<div class="actions"><button class="btn primary wide" onClick=${start}><${Icon} n=${queen ? 'crown' : 'flower'} s=${20} />${queen ? 'Race the queen' : 'Start the race'}</button>

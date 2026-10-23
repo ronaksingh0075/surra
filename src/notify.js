@@ -286,6 +286,9 @@ function promptFor(s, a, P) {
 /* ---------- what's new: shown once to people who were already on the road before this release */
 // newest first; the sheet shows every release since the one a player last saw
 const NEWS_RELEASES = [
+  { id: '1.10', items: [
+    { icon: 'keyboard', t: 'The Surra keyboard', d: 'Phones now type on Surra’s own keyboard, the same for everyone: å, ä, ö, the comma and the full stop are all on the main keys, so nobody wins a race because of their keyboard. Live races always use it; for lessons and bee races you can pick your own in Settings.' },
+  ] },
   { id: '1.9', items: [
     { icon: 'flower', t: 'Invites that cross', d: 'Invite a player to a typing race while they’re inviting you, and you both go straight into one race together.' },
   ] },

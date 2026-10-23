@@ -959,7 +959,7 @@ p { margin: 0; }
 
 /* ---------- 1.8: three bees, the queen and Kebnekaise */
 /* a night palette for the queen's race and the mountain, the same in light and dark mode */
-.onb-race.night, .room.climb {
+.onb-race.night, .room.climb, .kbd.night {
   --bg: #16122A; --bg-2: #1C1733; --surface: #221C3B; --surface-2: #2B2448; --ink: #F8EDE0; --ink-2: #BDAFC4; --ink-3: #85799A; --line: #3A3157;
   --glow: #F6B44E; --glow-2: #FFC874; --glow-ink: #261804; --glow-soft: #4A3620; --falu: #EC7A64; --moss: #7CCB8F; --moss-soft: #1D3A2A;
   --lingon: #F57E93; --lingon-soft: #4B2134; --aurora-a: #4FE6A6; --aurora-b: #9C7BFF; --gold: #F6B44E; --gold-2: #FFC874;
@@ -1283,3 +1283,67 @@ svg.bee.npc.queen { filter: drop-shadow(0 0 5px rgba(156, 123, 255, .6)); }
 
 /* both players invited each other: the race is on */
 .notice.crossed { margin-top: 10px; animation: rise .4s both; }
+
+/* ---------- 1.10: the Surra keyboard, docked at the bottom like a phone's own (the same keys on every phone) */
+:root { --kh: 42px; --kgx: 5px; --kgy: 7px; --kstrip: 34px; --kpt: 7px; --kpb: 8px;
+  --kb-h: calc(2px + var(--kpt) + var(--kstrip) + 4 * var(--kh) + 4 * var(--kgy) + var(--kpb) + env(safe-area-inset-bottom, 0px)); }
+@media (max-height: 690px) { :root { --kh: 40px; --kgy: 6px; --kstrip: 32px; } }
+@media (max-height: 480px) { :root { --kh: 32px; --kgy: 5px; --kstrip: 28px; --kpt: 4px; --kpb: 5px; } }
+@media (min-width: 700px) and (min-height: 820px) { :root { --kh: 50px; --kgx: 7px; --kgy: 9px; --kstrip: 38px; } }
+.kbd { position: fixed; z-index: 25; left: 0; right: 0; bottom: 0; height: var(--kb-h); padding: var(--kpt) max(4px, env(safe-area-inset-right, 0px)) calc(var(--kpb) + env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px));
+  --kb-bg: color-mix(in srgb, var(--ink) 7%, var(--bg-2)); --kb-key: var(--surface); --kb-fn: color-mix(in srgb, var(--ink) 11%, var(--bg-2)); --kb-edge: color-mix(in srgb, var(--ink) 24%, var(--bg-2));
+  background: var(--kb-bg); border-top: 2px solid var(--kb-edge); color: var(--ink);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; animation: kbIn .18s ease-out; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .kbd { --kb-bg: var(--bg); --kb-key: color-mix(in srgb, var(--ink) 13%, var(--surface)); --kb-fn: color-mix(in srgb, var(--ink) 5%, var(--surface)); --kb-edge: rgba(0, 0, 0, .5); }
+}
+:root[data-theme="dark"] .kbd, .kbd.night { --kb-bg: var(--bg); --kb-key: color-mix(in srgb, var(--ink) 13%, var(--surface)); --kb-fn: color-mix(in srgb, var(--ink) 5%, var(--surface)); --kb-edge: rgba(0, 0, 0, .5); }
+@keyframes kbIn { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.kb-in { max-width: 760px; margin: 0 auto; display: grid; grid-template-rows: var(--kstrip) repeat(4, var(--kh)); row-gap: var(--kgy); }
+.kb-strip { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+.kb-typed { flex: 1; min-width: 0; display: flex; align-items: center; padding: 0 12px; border-radius: 10px; background: var(--kb-key); box-shadow: inset 0 0 0 2px var(--glow); font-size: 19px; font-weight: 800; white-space: pre; overflow: hidden; }
+.kbd.idle .kb-typed { box-shadow: inset 0 0 0 2px var(--kb-edge); }
+.kb-strip.bad .kb-typed { box-shadow: inset 0 0 0 2px var(--lingon); }
+.kb-word { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.kb-slip { color: var(--lingon); background: var(--lingon-soft); border-radius: 3px; }
+.kb-ph { color: var(--ink-3); font-size: 15px; font-weight: 800; }
+.kb-caret { flex: none; width: 2px; height: 1.1em; margin: 0 1px; border-radius: 1px; background: var(--glow); animation: kbCaret 1.06s steps(1) infinite; }
+.kb-strip.bad .kb-caret { background: var(--lingon); }
+@keyframes kbCaret { 50% { opacity: 0; } }
+.kb-tip { flex: none; display: flex; align-items: center; gap: 4px; padding: 0 4px; font-size: 13.5px; font-weight: 800; color: var(--lingon); }
+.kb-tip b { font-size: 18px; font-weight: 900; }
+.kb-hide { flex: none; width: 42px; border: 0; border-radius: 10px; background: var(--kb-fn); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.kb-row { display: grid; grid-template-columns: repeat(22, minmax(0, 1fr)); column-gap: var(--kgx); }
+.kb-key { position: relative; min-width: 0; height: var(--kh); padding: 0; border: 0; border-radius: 9px; background: var(--kb-key); color: var(--ink); box-shadow: 0 2px 0 var(--kb-edge);
+  font: inherit; font-size: 21px; font-weight: 800; line-height: 1; display: grid; place-items: center; cursor: pointer; touch-action: none; -webkit-tap-highlight-color: transparent; }
+.kb-key.fn { background: var(--kb-fn); color: var(--ink-2); font-size: 15px; font-weight: 900; }
+.kb-key.k-space { font-size: 13.5px; font-weight: 800; letter-spacing: .02em; }
+.kb-key[data-down] { transform: translateY(2px); box-shadow: 0 0 0 var(--kb-edge); background: color-mix(in srgb, var(--glow-soft) 75%, var(--kb-key)); }
+.kb-key.next { background: color-mix(in srgb, var(--glow-soft) 70%, var(--kb-key)); box-shadow: 0 2px 0 var(--glow-2), inset 0 0 0 2px var(--glow); color: var(--ink); }
+.kb-key.k-back.next { background: var(--lingon-soft); box-shadow: 0 2px 0 var(--lingon), inset 0 0 0 2px var(--lingon); color: var(--lingon); }
+/* the letter pops up above your thumb, like a phone keyboard */
+.kb-key.ch[data-down]::after { content: attr(data-cap); position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%); min-width: 46px; height: 50px; padding: 0 10px; border-radius: 12px;
+  background: var(--kb-key); color: var(--ink); box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .55), 0 0 0 1.5px var(--kb-edge); display: grid; place-items: center; font-size: 30px; font-weight: 900; pointer-events: none; z-index: 2; }
+.kb-row > .kb-key:first-child::after { left: 0; transform: none; }
+.kb-row > .kb-key:last-child::after { left: auto; right: 0; transform: none; }
+.kbd.idle .kb-row { opacity: .5; }
+@media (max-height: 480px) { .kb-key { font-size: 18px; } .kb-key.ch[data-down]::after { height: 40px; font-size: 24px; } }
+/* while the keys are up: rooms end above them, the page scrolls above them, and nothing pops up over them */
+html.kb-on .room { bottom: var(--kb-h); }
+html.kb-on body { padding-bottom: var(--kb-h); }
+html.kb-on .updatebar { display: none; }
+html.kb-on .room-foot { padding-bottom: 12px; }
+/* a race in a room: the track stays in sight (and slimmer) while the text scrolls under it, a line ahead of you */
+@media (min-height: 481px) { html.kb-on .room .race-live > .beetrack { position: sticky; top: 0; z-index: 3; } } /* not on a phone on its side: no room */
+@media (max-height: 760px) {
+  html.kb-on .room .race-live { gap: 10px; }
+  html.kb-on .room .race-live > .beetrack { padding: 6px 12px 8px; gap: 2px; }
+  html.kb-on .room .race-live > .beetrack .bt-head { display: none; }
+  html.kb-on .room .race-live > .beetrack .lane-road { height: 34px; }
+  html.kb-on .room .race-live > .beetrack .lane-bee { transform: translateX(-50%) scale(.84); transform-origin: 50% 100%; }
+}
+.lkey.kb-show { color: var(--ink-2); padding: 0 12px; display: inline-grid; place-items: center; }
+/* the strip above the keys shows what you type, so the box's own input steps out of sight (but stays for screen readers) */
+.typebox { position: relative; }
+.typebox.docked .tb-input { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; opacity: 0; overflow: hidden; clip-path: inset(50%); pointer-events: none; }
+.typebox.locked .tb-input { pointer-events: none; caret-color: transparent; }

@@ -299,7 +299,7 @@ function App() {
   const playChallenge = c => { setSheet(null); setRoom({ name: 'duel', mode: 'answer', challenge: c, k: Date.now() }); };
   const racePlayer = target => { setSheet(null); setRoom({ name: 'race', mode: 'host', target, k: Date.now() }); };
   const joinRace = r => { setSheet(null); setRoom({ name: 'race', mode: 'guest', race: r, k: Date.now() }); };
-  if (view && view.name === 'onboard') return html`<${Onboarding} done=${() => { setView(null); setTab('home'); }} go=${go} /><${Toasts} /><${UpdateBanner} />`;
+  if (view && view.name === 'onboard') return html`<${Onboarding} done=${() => { setView(null); setTab('home'); }} go=${go} /><${KeyDock} /><${Toasts} /><${UpdateBanner} />`;
   if (s.onboarded && s.signupDue && acctNow.status === 'guest' && !(view && view.name === 'account')) return html`<${JoinLater} /><${Toasts} /><${UpdateBanner} />`;
   if (view && view.name === 'account') return html`<${AccountPage} go=${go} mode=${view.mode} /><${Toasts} /><${UpdateBanner} />`;
   const body = tab === 'map' ? html`<${MapTab} s=${s} mode=${mapMode} setMode=${setMapMode} go=${go} openStop=${openStop} openRegion=${openRegion} openFact=${openFact} openPlayers=${openPlayers} openChallenges=${openChallenges} />`
@@ -329,5 +329,5 @@ function App() {
     ${sheet && sheet.type === 'challenges' ? html`<${ChallengesSheet} onClose=${() => setSheet(null)} onPlay=${playChallenge} />` : null}
     ${sheet && sheet.type === 'fact' ? html`<${FactSheet} key=${'f' + sheet.sid + sheet.i} s=${s} sid=${sheet.sid} i=${sheet.i} onClose=${() => setSheet(null)} openStop=${openStop} />` : null}
     ${news && !room && !sheet ? html`<${NewsSheet} s=${s} go=${go} onClose=${() => setNews(false)} />` : null}
-    <${Toasts} /><${Celebrate} /><${UpdateBanner} />`;
+    <${KeyDock} /><${Toasts} /><${Celebrate} /><${UpdateBanner} />`;
 }
